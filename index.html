@@ -2569,7 +2569,19 @@ function parseStates(spec){
 function hTagPaths(){
   const out = tagPaths(null);
   for (const pr of P.programs) for (const p of tagPaths({...pr, tags:pr.tags}).filter(x => pr.tags.some(t => lc(x.split(/[.\[]/)[0]) === lc(t.name)))) out.push(`Program:${pr.name}.${p}`);
-  return out;
+  /* bits of integers (Tag.3) are not listed by tagPaths; offer the ones the logic uses, right after their word */
+  const bits = new Map(), have = new Set(out.map(lc));
+  for (const pr of P.programs) for (const rt of pr.routines){
+    const src = (rt.rungs || []).map(r => r.text).join(' ') + ' ' + (rt.st || '');
+    for (const m of src.matchAll(/[A-Za-z_][\w:]*(?:\[\d+(?:,\d+)*\])?(?:\.[A-Za-z_]\w*(?:\[\d+\])?)*\.\d{1,2}\b/g)){
+      const p = m[0], word = p.replace(/\.\d+$/, '');
+      if (have.has(lc(p)) || !have.has(lc(word)) || hval(p) == null) continue;
+      have.add(lc(p)); (bits.get(lc(word)) || bits.set(lc(word), []).get(lc(word))).push(p);
+    }
+  }
+  if (!bits.size) return out;
+  const nat = (a, b) => +a.split('.').pop() - +b.split('.').pop();
+  return out.flatMap(p => bits.has(lc(p)) ? [p, ...bits.get(lc(p)).sort(nat)] : [p]);
 }
 function renderHmiToolbar(tb){
   const sc = hScreen();
