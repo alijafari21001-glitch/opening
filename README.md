@@ -4,7 +4,7 @@ A free, open source ladder logic editor, virtual controller and HMI that runs in
 It reads and writes the public L5X XML format, so routines move back and forth with Studio 5000.
 Independent clean-room project; not affiliated with Rockwell Automation.
 
-**Try it:** https://alijafari21001-glitch.github.io/openrung/
+**Try it:** https://alijafari21001-glitch.github.io/opening/
 
 ![Ladder editor online in Run mode](docs/ladder.png)
 
