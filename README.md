@@ -15,7 +15,7 @@ Independent clean-room project; not affiliated with Rockwell Automation.
 ## Use it
 - Open the link above, or download `index.html` and open it in any browser (works offline).
 - **Go online** in the top bar, **Download**, then switch the controller to **Run**. The virtual controller runs in a Web Worker and scans every 10 ms; the editor shows live values and power flow.
-- The **HMI** tab has a screen designer (buttons, lamps, numeric display and entry, bar graph, tank, multistate, text, screen buttons, trend, alarm list, process view). Design mode edits, Run mode drives the controller.
+- The **HMI** tab has a screen designer (buttons, lamps, numeric display and entry, bar graph, tank, multistate, text, screen buttons, trend, alarm list, process view, axis position). Design mode edits, Run mode drives the controller.
 - A second tab connects to the same controller. Add `#hmi` to the link to open straight into the operator screens.
 - **I/O Configuration** holds a virtual rack (DI16, DO16, AI4, AO4 cards) and process models (a conveyor with photo-eyes, a tank with fill and drain) that act as the machine.
 - **Project** saves and opens `.json` project files and keeps a recent-projects list; work autosaves in the browser.
@@ -23,10 +23,11 @@ Independent clean-room project; not affiliated with Rockwell Automation.
 
 ## What it covers
 - Instructions: XIC XIO ONS OTE OTL OTU OSR OSF TON TOF RTO CTU CTD RES EQU NEQ GRT GEQ LES LEQ LIM MEQ MOV ADD SUB MUL DIV MOD CPT CLR COP FLL SQO JSR SBR RET NOP AFI
+- Motion: MSO MSF MAFR MAH MAJ MAM MAS, with the same operands and option words as the L5X rung text, on a simulated servo axis (`AXIS_CIP_DRIVE` or `AXIS_VIRTUAL` tag, `MOTION_INSTRUCTION` control tags). The axis follows its command with trapezoidal moves; homing is immediate. The demo has an `Axis_Motion` routine and an **Axis** HMI screen with a position display. When you import into Studio 5000, assign the axis to a motion group and drive there.
 - Structured text routines: assignments, IF/ELSIF/ELSE, CASE, FOR, WHILE, REPEAT, EXIT, RETURN, JSR, math functions.
 - Main routine per program; with none set, every routine that no JSR calls runs.
 - Controller: Program, Run and Faulted modes, scan time, watchdog, online edits, upload and download.
-- Tags: BOOL SINT INT DINT REAL TIMER COUNTER CONTROL, arrays, aliases, user-defined types, bit addressing (`Tag.3`).
+- Tags: BOOL SINT INT DINT REAL TIMER COUNTER CONTROL AXIS_CIP_DRIVE AXIS_VIRTUAL MOTION_INSTRUCTION, arrays, aliases, user-defined types, bit addressing (`Tag.3`).
 - `bridge/`: optional Node.js app that serves the tags over Modbus TCP and OPC UA (see its README).
 - Not yet: FBD/SFC routines, AOIs, talking to real hardware.
 
