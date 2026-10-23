@@ -1330,10 +1330,10 @@ function doUndo(){
 /* autosave: the open project, plus a copy under its name for the recent-projects list */
 const RKEY = 'openrung.recent.v1', PFX = 'openrung.p.';
 let saveTimer = 0, savedAt = null;
-function save(){
+function save(now){
   sigMemo = null;
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => {
+  const write = () => {
     try {
       const snap = snapshot();
       localStorage.setItem(KEY, snap); localStorage.setItem(PFX + P.name, snap);
@@ -1341,7 +1341,8 @@ function save(){
       localStorage.setItem(RKEY, JSON.stringify(list.slice(0, 12)));
       savedAt = new Date(); renderStatus();
     } catch(e){}
-  }, 400);
+  };
+  if (now) write(); else saveTimer = setTimeout(write, 400);
 }
 function recentList(){ try { const l = JSON.parse(localStorage.getItem(RKEY) || '[]'); return Array.isArray(l) ? l : []; } catch(e){ return []; } }
 setInterval(() => { if (CONN.online) save(); }, 5000);
@@ -2266,10 +2267,10 @@ function showProject(){
     <h3 class="sth">Recent projects in this browser</h3>
     <div class="recent">${rec.length ? rec.map(r => `<div class="rrec"><span class="mono">${esc(r.name)}</span><span class="muted">${new Date(r.at).toLocaleString()}</span><button data-ropen="${esc(r.name)}"${r.name === P.name ? ' disabled' : ''}>${r.name === P.name ? 'Open now' : 'Open'}</button><button class="danger" data-rdel="${esc(r.name)}"${r.name === P.name ? ' disabled' : ''}>Remove</button></div>`).join('') : '<p class="note">None yet.</p>'}</div>
     <h3 class="sth">Start over</h3>
-    <div class="addrow"><div class="field"><label for="npName">New controller name</label><input id="npName" value="MyProject" class="mono"></div><button id="npGo">New empty project</button><button id="npSample">Load the Lab 5 sample</button></div>
+    <div class="addrow"><div class="field"><label for="npName">New controller name</label><input id="npName" value="MyProject" class="mono"></div><button id="npGo">New empty project</button><button id="npSample">${$('#sampleL5X').textContent.trim() ? 'Load the Lab 5 sample' : 'Load the demo project'}</button></div>
     <p class="note" id="pjNote">The current project stays in the recent list when you switch.</p>
     <div class="btns"><button data-close>Close</button></div>`);
-  const swap = p => { pushUndo(); P = normalize(p); reparseAll(); state.view = {kind:'routine', prog:0, rt:0}; state.sel = null; state.hsel = null; ALARMS.reset(); save(); closeModal(); renderAll(); };
+  const swap = p => { save(true); pushUndo(); P = normalize(p); reparseAll(); state.view = {kind:'routine', prog:0, rt:0}; state.sel = null; state.hsel = null; ALARMS.reset(); save(true); closeModal(); renderAll(); };
   $('#pjRename').onclick = () => { const n = $('#pjName').value.trim(); if (!validName(n)){ toast('Names start with a letter and use letters, digits and single _.'); return; } edit(() => { P.name = n; }); renderAll(); toast('Renamed to ' + n); };
   $('#pjSave').onclick = () => saveProjectFile();
   $('#pjOpen').onclick = () => $('#pjFile').click();
