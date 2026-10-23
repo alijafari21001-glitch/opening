@@ -19,6 +19,7 @@ Independent clean-room project; not affiliated with Rockwell Automation.
 - A second tab connects to the same controller. Add `#hmi` to the link to open straight into the operator screens.
 - **I/O Configuration** holds a virtual rack (DI16, DO16, AI4, AO4 cards) and process models (a conveyor with photo-eyes, a tank with fill and drain) that act as the machine.
 - **Project** saves and opens `.json` project files and keeps a recent-projects list; work autosaves in the browser.
+- **Sign in** (optional) keeps your projects online, private to your account, so they follow you to any computer. Without an account everything stays in your browser.
 - Import L5X: routine, program or controller exports. Export: one ladder or ST routine with its tags and data types as context.
 
 ## What it covers
@@ -34,5 +35,13 @@ Independent clean-room project; not affiliated with Rockwell Automation.
 - `index.html` is the whole app: one file, no build step.
 - `bridge/` is the Modbus TCP / OPC UA helper (`cd bridge && npm install && npm start`).
 - `docs/` holds the screenshots.
+- `supabase/setup.sql` creates the online projects table with row-level security.
+
+## Turn on accounts (for your own copy)
+1. Make a free account at https://supabase.com and create a new project (any name and region; save the database password somewhere).
+2. In the project, open **SQL Editor**, click **New query**, paste the contents of `supabase/setup.sql`, and click **Run**.
+3. Open **Authentication > URL Configuration**. Set **Site URL** to your OpenRung link (for example `https://alijafari21001-glitch.github.io/opening/`) and add the same link under **Redirect URLs**.
+4. Open **Project Settings > API** (or **Data API**). Copy the **Project URL** and the **anon public** key into `CLOUD_CFG` near the top of the accounts section in `index.html`. The anon key is meant to be public; row-level security keeps each user's projects private. Never paste the `service_role` key.
+5. Reload OpenRung and click **Sign in > Create account**.
 
 License: MIT

@@ -329,6 +329,7 @@ button:disabled{opacity:.45;cursor:default}
     </div>
     <div class="actions">
       <button id="projBtn">Project</button>
+      <button id="acctBtn" title="Sign in to keep your projects online">Sign in</button>
       <button id="importBtn">Import L5X</button>
       <button id="exportBtn">Export L5X</button>
       <button id="undoBtn" title="Undo (Ctrl+Z)">Undo</button>
@@ -1327,6 +1328,76 @@ function doUndo(){
   if (!undo.length){ toast('Nothing to undo'); return; }
   P = normalize(JSON.parse(undo.pop())); state.sel = null; fixView(); save(); renderAll();
 }
+/* ---------------- accounts and online projects (Supabase) ----------------
+   Fill in CLOUD_CFG with your Supabase project URL and anon key, or enter them in the Account dialog.
+   The anon key is public by design; row-level security (see supabase/setup.sql) keeps each user's projects private.
+   Without a configuration the app works exactly as before, saving only in this browser. */
+const CLOUD_CFG = {url:'', key:''};
+const CLOUD = {
+  sb:null, user:null, err:'', savedAt:null, timer:0, lastSent:'',
+  cfg(){ let c = null; try { c = JSON.parse(localStorage.getItem('openrung.cloud.v1') || 'null'); } catch(e){} return c && c.url && c.key ? c : CLOUD_CFG; },
+  ready(){ const c = this.cfg(); return !!(c.url && c.key); },
+  async lib(){
+    if (window.supabase) return window.supabase;
+    await new Promise((ok, bad) => { const s = document.createElement('script'); s.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js'; s.onload = ok; s.onerror = () => bad(new Error('Could not load the sign-in library. Check your internet connection.')); document.head.appendChild(s); });
+    return window.supabase;
+  },
+  async init(){
+    if (!this.ready()){ this.renderBtn(); return; }
+    try {
+      const c = this.cfg(), lib = await this.lib();
+      this.sb = lib.createClient(c.url, c.key, {auth:{persistSession:true, autoRefreshToken:true, detectSessionInUrl:true}});
+      const {data} = await this.sb.auth.getSession(); this.setUser(data.session && data.session.user);
+      this.sb.auth.onAuthStateChange((ev, sess) => { this.setUser(sess && sess.user); if (ev === 'PASSWORD_RECOVERY') setTimeout(() => showAccount('Choose a new password below.'), 0); });
+    } catch(e){ this.err = e.message; }
+    this.renderBtn();
+  },
+  setUser(u){ const was = this.user && this.user.id; this.user = u || null; this.err = ''; this.renderBtn(); renderStatus(); if (this.user && this.user.id !== was){ this.lastSent = ''; this.queue(); } },
+  renderBtn(){ const b = $('#acctBtn'); if (b) b.textContent = this.user ? (this.user.email || 'Account').split('@')[0] : 'Sign in'; },
+  need(){ if (!this.sb || !this.user) throw new Error('Sign in first.'); },
+  queue(){ if (!this.user) return; clearTimeout(this.timer); this.timer = setTimeout(() => this.push().catch(() => {}), 2000); },
+  async push(){
+    this.need(); const snap = snapshot(); if (snap === this.lastSent) return;
+    const {error} = await this.sb.from('projects').upsert({user_id:this.user.id, name:P.name, data:JSON.parse(snap), updated_at:new Date().toISOString()}, {onConflict:'user_id,name'});
+    if (error){ this.err = error.message; renderStatus(); throw new Error(error.message); }
+    this.lastSent = snap; this.err = ''; this.savedAt = new Date(); renderStatus();
+  },
+  async list(){ this.need(); const {data, error} = await this.sb.from('projects').select('name,updated_at').order('updated_at', {ascending:false}); if (error) throw new Error(error.message); return data; },
+  async get(name){ this.need(); const {data, error} = await this.sb.from('projects').select('data').eq('name', name).single(); if (error) throw new Error(error.message); if (!data || !data.data || !Array.isArray(data.data.programs)) throw new Error('That project could not be read.'); return data.data; },
+  async del(name){ this.need(); const {error} = await this.sb.from('projects').delete().eq('name', name); if (error) throw new Error(error.message); }
+};
+function showAccount(msg){
+  const c = CLOUD.cfg(), u = CLOUD.user;
+  openModal(`<h2>Account</h2>
+    ${u ? `<p>Signed in as <b>${esc(u.email || '')}</b>. The open project is saved to your account as you work, and only you can see your projects. Open them from Project on any computer.</p>
+      <div class="btns"><button class="primary" id="acSync">Save to my account now</button><button id="acOut">Sign out</button></div>
+      <div class="addrow"><div class="field"><label for="acNew">New password</label><input id="acNew" type="password" autocomplete="new-password" style="width:160px"></div><button id="acPwGo">Change password</button></div>`
+    : !CLOUD.ready() ? `<p>Online saving is not set up for this copy of OpenRung yet. You can keep working; projects are saved in this browser.</p>`
+    : `<p>Sign in to keep your projects online and open them on any computer. You can also keep working without an account; projects are then saved only in this browser.</p>
+      <div class="addrow"><div class="field"><label for="acMail">Email</label><input id="acMail" type="email" autocomplete="email" style="width:220px"></div>
+        <div class="field"><label for="acPw">Password</label><input id="acPw" type="password" autocomplete="current-password" style="width:160px"></div></div>
+      <div class="btns"><button class="primary" id="acIn">Sign in</button><button id="acUp">Create account</button><button id="acReset">Forgot password</button></div>`}
+    <p class="note" id="acNote">${esc(msg || CLOUD.err)}</p>
+    <details><summary class="muted">Online saving setup (for whoever hosts this copy)</summary>
+      <p class="note">Paste your Supabase project URL and anon public key. They are stored in this browser only. Leave both empty to use the built-in settings.</p>
+      <div class="addrow"><div class="field"><label for="acUrl">Project URL</label><input id="acUrl" class="mono" value="${esc(c.url)}" style="width:260px"></div>
+        <div class="field"><label for="acKey">Anon key</label><input id="acKey" class="mono" value="${esc(c.key)}" style="width:260px"></div><button id="acCfg">Save setup</button></div></details>
+    <div class="btns"><button data-close>Close</button></div>`);
+  const note = t => { const el = $('#acNote'); if (el) el.textContent = t; };
+  const creds = () => ({email:$('#acMail').value.trim(), password:$('#acPw').value});
+  const run = async (f, ok) => { try { const {error} = await f(); if (error) throw error; if (ok) note(ok); else showAccount(); } catch(e){ note(e.message || String(e)); } };
+  if ($('#acIn')) $('#acIn').onclick = () => run(() => CLOUD.sb.auth.signInWithPassword(creds()));
+  if ($('#acUp')) $('#acUp').onclick = () => { const k = creds(); if (k.password.length < 6){ note('Use a password of at least 6 characters.'); return; }
+    run(() => CLOUD.sb.auth.signUp({...k, options:{emailRedirectTo:location.href.split('#')[0]}}), 'Check your email and click the link to finish creating your account, then sign in here.'); };
+  if ($('#acReset')) $('#acReset').onclick = () => { const e = $('#acMail').value.trim(); if (!e){ note('Type your email first.'); return; }
+    run(() => CLOUD.sb.auth.resetPasswordForEmail(e, {redirectTo:location.href.split('#')[0]}), 'If that email has an account, a reset link is on its way.'); };
+  if ($('#acOut')) $('#acOut').onclick = () => run(() => CLOUD.sb.auth.signOut());
+  if ($('#acPwGo')) $('#acPwGo').onclick = () => { const pw = $('#acNew').value; if (pw.length < 6){ note('Use a password of at least 6 characters.'); return; } run(() => CLOUD.sb.auth.updateUser({password:pw}), 'Password changed.'); };
+  if ($('#acSync')) $('#acSync').onclick = async () => { CLOUD.lastSent = ''; try { await CLOUD.push(); note('Saved ' + P.name + ' to your account.'); } catch(e){ note(e.message); } };
+  $('#acCfg').onclick = () => { const url = $('#acUrl').value.trim().replace(/\/+$/, ''), key = $('#acKey').value.trim();
+    try { if (url && key) localStorage.setItem('openrung.cloud.v1', JSON.stringify({url, key})); else localStorage.removeItem('openrung.cloud.v1'); } catch(e){}
+    location.reload(); };
+}
 /* autosave: the open project, plus a copy under its name for the recent-projects list */
 const RKEY = 'openrung.recent.v1', PFX = 'openrung.p.';
 let saveTimer = 0, savedAt = null;
@@ -1341,6 +1412,7 @@ function save(now){
       localStorage.setItem(RKEY, JSON.stringify(list.slice(0, 12)));
       savedAt = new Date(); renderStatus();
     } catch(e){}
+    CLOUD.queue();
   };
   if (now) write(); else saveTimer = setTimeout(write, 400);
 }
@@ -2266,6 +2338,7 @@ function showProject(){
     <div class="btns"><button class="primary" id="pjSave">Save project file</button><button id="pjOpen">Open project file</button><input type="file" id="pjFile" accept=".json,.txt,.l5x,.L5X" hidden></div>
     <h3 class="sth">Recent projects in this browser</h3>
     <div class="recent">${rec.length ? rec.map(r => `<div class="rrec"><span class="mono">${esc(r.name)}</span><span class="muted">${new Date(r.at).toLocaleString()}</span><button data-ropen="${esc(r.name)}"${r.name === P.name ? ' disabled' : ''}>${r.name === P.name ? 'Open now' : 'Open'}</button><button class="danger" data-rdel="${esc(r.name)}"${r.name === P.name ? ' disabled' : ''}>Remove</button></div>`).join('') : '<p class="note">None yet.</p>'}</div>
+    ${CLOUD.user ? `<h3 class="sth">Your online projects</h3><div class="recent" id="cloudList"><p class="note">Loading…</p></div>` : `<p class="note">${CLOUD.ready() ? 'Sign in' : 'Set up an account'} to keep projects online and open them on any computer. <button id="pjAcct">Account</button></p>`}
     <h3 class="sth">Start over</h3>
     <div class="addrow"><div class="field"><label for="npName">New controller name</label><input id="npName" value="MyProject" class="mono"></div><button id="npGo">New empty project</button><button id="npSample">${$('#sampleL5X').textContent.trim() ? 'Load the Lab 5 sample' : 'Load the demo project'}</button></div>
     <p class="note" id="pjNote">The current project stays in the recent list when you switch.</p>
@@ -2282,6 +2355,13 @@ function showProject(){
   $('#npGo').onclick = () => { const n = $('#npName').value.trim(); swap(emptyProject(validName(n) ? n : 'MyProject')); };
   $('#npSample').onclick = () => swap(sampleProject());
   $('#sheet').querySelectorAll('[data-ropen]').forEach(b => b.onclick = () => { try { const p = JSON.parse(localStorage.getItem(PFX + b.dataset.ropen)); swap(p); toast('Opened ' + P.name); } catch(x){ toast('That project could not be read.'); } });
+  if ($('#pjAcct')) $('#pjAcct').onclick = showAccount;
+  if (CLOUD.user) CLOUD.list().then(rows => {
+    const el = $('#cloudList'); if (!el) return;
+    el.innerHTML = rows.length ? rows.map(r => `<div class="rrec"><span class="mono">${esc(r.name)}</span><span class="muted">${new Date(r.updated_at).toLocaleString()}</span><button data-copen="${esc(r.name)}"${r.name === P.name ? ' disabled' : ''}>${r.name === P.name ? 'Open now' : 'Open'}</button><button class="danger" data-cdel="${esc(r.name)}"${r.name === P.name ? ' disabled' : ''}>Delete</button></div>`).join('') : '<p class="note">None yet. The open project is saved here as you work.</p>';
+    el.querySelectorAll('[data-copen]').forEach(b => b.onclick = async () => { try { swap(await CLOUD.get(b.dataset.copen)); toast('Opened ' + P.name + ' from your account'); } catch(x){ toast(x.message); } });
+    el.querySelectorAll('[data-cdel]').forEach(b => b.onclick = async () => { if (!b.classList.contains('armed')){ b.classList.add('armed'); b.textContent = 'Click again'; return; } try { await CLOUD.del(b.dataset.cdel); } catch(x){ toast(x.message); } showProject(); });
+  }).catch(x => { const el = $('#cloudList'); if (el) el.innerHTML = `<p class="note">${esc(x.message)}</p>`; });
   $('#sheet').querySelectorAll('[data-rdel]').forEach(b => b.onclick = () => { try { localStorage.removeItem(PFX + b.dataset.rdel); localStorage.setItem(RKEY, JSON.stringify(recentList().filter(r => r.name !== b.dataset.rdel))); } catch(x){} showProject(); });
 }
 async function saveFile(name, text, type){
@@ -2385,6 +2465,7 @@ function renderStatus(){
   else parts.push(`<span class="ok">online · ${c.mode === 'RUN' ? 'Run' : 'Program'}</span>`, `<span>scan ${c.scanMs.toFixed(2)} ms · max ${c.maxMs.toFixed(2)} · ${c.scans} scans</span>`);
   parts.push(e.rungs || e.ops ? `<span class="bad">${e.rungs ? e.rungs + ' logic error(s) ' : ''}${e.ops ? e.ops + ' unknown operand(s)' : ''}</span>` : `<span>verified, no errors</span>`);
   parts.push(`<span>${savedAt ? 'saved in this browser ' + savedAt.toLocaleTimeString() : 'saved in this browser'}</span>`);
+  if (CLOUD.user) parts.push(`<span class="${CLOUD.err ? 'bad' : ''}">${CLOUD.err ? 'cloud: ' + esc(CLOUD.err) : CLOUD.savedAt ? 'saved online ' + CLOUD.savedAt.toLocaleTimeString() : 'signed in'}</span>`);
   $('#status').innerHTML = parts.join('');
 }
 function refreshLive(){
@@ -2428,6 +2509,8 @@ $('#importBtn').onclick = showImport;
 $('#exportBtn').onclick = showExport;
 $('#undoBtn').onclick = doUndo;
 $('#projBtn').onclick = showProject;
+$('#acctBtn').onclick = showAccount;
+CLOUD.init();
 $('#aboutBtn').onclick = showAbout;
 $('#tabLogic').onclick = () => { state.view = state.logic && state.logic.kind !== 'hmi' ? {...state.logic} : {kind:'routine', prog:0, rt:0}; state.sel = null; renderAll(); };
 $('#tabHmi').onclick = () => { state.view = {kind:'hmi', screen:state.screen || 0}; renderAll(); };
