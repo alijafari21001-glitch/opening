@@ -13,7 +13,7 @@
 :root{
   --bg:#e9eeec; --panel:#fafcfb; --sunk:#dfe6e3; --line:#c3cdc9; --fg:#18221e; --muted:#5a6964;
   --wire:#55635e; --rail:#2a3531; --on:#13804f; --on-soft:#bfe8d2; --sel:#2c64c9; --sel-soft:#dbe6fa;
-  --warn:#b4410d; --warn-soft:#fbe1d3; --box:#ffffff;
+  --warn:#b4410d; --warn-soft:#fbe1d3; --box:#ffffff; --hl:#8a5a00; --hl-soft:#ffe9a8;
   --c-green:#178a52; --c-red:#c8372d; --c-amber:#c98a06; --c-blue:#2c64c9; --c-grey:#7d8a86; --hmi-bg:#f2f5f4; --hmi-num:#eef3f1;
   --f-ui:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
   --f-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Consolas,monospace;
@@ -22,11 +22,11 @@
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --bg:#101614; --panel:#171e1c; --sunk:#0c1110; --line:#2a3532; --fg:#dbe4e0; --muted:#8b9a95;
   --wire:#7b8a85; --rail:#b7c4bf; --on:#3fd08f; --on-soft:#173d2c; --sel:#79a6ff; --sel-soft:#1b2a45;
-  --warn:#ff9a5c; --warn-soft:#3a2216; --box:#1c2422; --c-green:#3fd08f; --c-red:#ff6b5e; --c-amber:#f2b630; --c-blue:#79a6ff; --c-grey:#8b9a95; --hmi-bg:#131a18; --hmi-num:#0f1513; color-scheme:dark}}
+  --warn:#ff9a5c; --warn-soft:#3a2216; --box:#1c2422; --hl:#ffd25e; --hl-soft:#3d3210; --c-green:#3fd08f; --c-red:#ff6b5e; --c-amber:#f2b630; --c-blue:#79a6ff; --c-grey:#8b9a95; --hmi-bg:#131a18; --hmi-num:#0f1513; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#101614; --panel:#171e1c; --sunk:#0c1110; --line:#2a3532; --fg:#dbe4e0; --muted:#8b9a95;
   --wire:#7b8a85; --rail:#b7c4bf; --on:#3fd08f; --on-soft:#173d2c; --sel:#79a6ff; --sel-soft:#1b2a45;
-  --warn:#ff9a5c; --warn-soft:#3a2216; --box:#1c2422; --c-green:#3fd08f; --c-red:#ff6b5e; --c-amber:#f2b630; --c-blue:#79a6ff; --c-grey:#8b9a95; --hmi-bg:#131a18; --hmi-num:#0f1513; color-scheme:dark}
+  --warn:#ff9a5c; --warn-soft:#3a2216; --box:#1c2422; --hl:#ffd25e; --hl-soft:#3d3210; --c-green:#3fd08f; --c-red:#ff6b5e; --c-amber:#f2b630; --c-blue:#79a6ff; --c-grey:#8b9a95; --hmi-bg:#131a18; --hmi-num:#0f1513; color-scheme:dark}
 [hidden]{display:none!important}
 html,body{height:100%}
 body{background:var(--bg);color:var(--fg);font:14px/1.45 var(--f-ui)}
@@ -99,6 +99,16 @@ svg.lad{display:block;flex:none;user-select:none}
 .lad .cf.on{fill:var(--on)}
 .lad .op{font:500 11px var(--f-mono);fill:var(--fg)}
 .lad .op.bad{fill:var(--warn);text-decoration:underline}
+.lad .xhl .hit{fill:var(--hl-soft)}
+.lad .sel.xhl .hit{fill:var(--hl-soft);stroke:var(--sel)}
+.lad .op.tagmark{fill:var(--hl);font-weight:700}
+.ctxm{position:fixed;z-index:60;background:var(--panel);border:1px solid var(--line);border-radius:6px;box-shadow:0 6px 20px rgba(0,0,0,.18);padding:4px;display:flex;flex-direction:column;min-width:220px}
+.ctxm button{border:0;background:none;text-align:left;padding:7px 10px;border-radius:4px;display:flex;justify-content:space-between;gap:16px}
+.ctxm button:hover,.ctxm button:focus{background:var(--sunk)}
+.ctxm kbd,.xr kbd{font:11px var(--f-mono);color:var(--muted)}
+.xr tbody tr{cursor:pointer}
+.xr tbody tr:hover td,.xr tbody tr:focus td{background:var(--sel-soft)}
+.xr .d{font:600 11px var(--f-mono);color:var(--warn)}
 .lad .tiny{font:500 9px var(--f-mono);fill:var(--muted)}
 .lad .tiny.on{fill:var(--on);font-weight:600}
 .lad .coilt{font:600 10px var(--f-mono);fill:var(--fg)}
@@ -1376,10 +1386,11 @@ function drawBranch(n, x, y, pos, out){
   out.push(wire(rx, y + G.wy, rx, lastWy, n._out));
   out.push(wire(rx, y + G.wy, x + n._w, y + G.wy, n._out));
 }
-function opText(arg, prog, x, y, anchor, max, isRt){
+function opText(arg, prog, x, y, anchor, max, isRt, ai){
   const a = arg == null ? '' : String(arg);
   const bad = a && a !== '?' && !LIT.test(a) && (isRt ? !prog.routines.some(r => lc(r.name) === lc(a)) : !resolve(a, prog));
-  return `<text class="op${bad ? ' bad' : ''}" x="${x}" y="${y}" text-anchor="${anchor}"><title>${esc(a)}${bad ? ' (tag not found)' : ''}</title>${esc(short(a || '?', max))}</text>`;
+  const hl = !isRt && state.hl && (ai === 1 && /[^\w.\[\]:]/.test(a) ? stRefs(a) : [a]).some(w => tagKey(w, prog) === state.hl.key);
+  return `<text class="op${bad ? ' bad' : ''}${hl ? ' tagmark' : ''}"${ai != null ? ` data-arg="${ai}"` : ''} x="${x}" y="${y}" text-anchor="${anchor}"><title>${esc(a)}${bad ? ' (tag not found)' : ''}</title>${esc(short(a || '?', max))}</text>`;
 }
 function fmtVal(v){
   if (typeof v !== 'number') return '';
@@ -1388,7 +1399,8 @@ function fmtVal(v){
 function drawIns(n, x, y, id, sel, prog, out){
   const d = I[n.name], w = n._w, h = n._h, wy = y + G.wy, cx = x + w / 2;
   const c = {prog};
-  out.push(`<g class="ins${sel ? ' sel' : ''}" data-id="${id}"><rect class="hit" x="${x + 2}" y="${y + 2}" width="${w - 4}" height="${h - 4}" rx="5"/>`);
+  const xhl = state.hl && nodeRefs(n).some(r => tagKey(r.path, prog) === state.hl.key);
+  out.push(`<g class="ins${sel ? ' sel' : ''}${xhl ? ' xhl' : ''}" data-id="${id}"><rect class="hit" x="${x + 2}" y="${y + 2}" width="${w - 4}" height="${h - 4}" rx="5"/>`);
   if (d && d.k === 'c'){
     const b = bit(n.args[0], c);
     const on = n.name === 'XIO' ? !b : !!b;
@@ -1397,7 +1409,7 @@ function drawIns(n, x, y, id, sel, prog, out){
     out.push(`<line class="sym" x1="${cx - 9}" y1="${wy - 13}" x2="${cx - 9}" y2="${wy + 13}"/><line class="sym" x1="${cx + 9}" y1="${wy - 13}" x2="${cx + 9}" y2="${wy + 13}"/>`);
     if (n.name === 'XIO') out.push(`<line class="sym" x1="${cx - 6}" y1="${wy + 11}" x2="${cx + 6}" y2="${wy - 11}"/>`);
     if (n.name === 'ONS') out.push(`<text class="tiny" x="${cx}" y="${wy + 26}" text-anchor="middle">ONS</text>`);
-    out.push(opText(n.args[0], prog, cx, y + 14, 'middle', 30));
+    out.push(opText(n.args[0], prog, cx, y + 14, 'middle', 30, false, 0));
   } else if (d && d.k === 'o'){
     const lbl = {OTL:'L', OTU:'U', RES:'RES'}[n.name] || '';
     const r = lbl.length > 1 ? 16 : 11;
@@ -1406,7 +1418,7 @@ function drawIns(n, x, y, id, sel, prog, out){
     out.push(`<path class="sym" d="M${cx - r + 5} ${wy - 12} Q${cx - r - 3} ${wy} ${cx - r + 5} ${wy + 12}"/><path class="sym" d="M${cx + r - 5} ${wy - 12} Q${cx + r + 3} ${wy} ${cx + r - 5} ${wy + 12}"/>`);
     if (on) out.push(`<circle cx="${cx}" cy="${wy}" r="${r - 6}" class="cf on"/>`);
     if (lbl) out.push(`<text class="coilt${on ? ' on' : ''}" x="${cx}" y="${wy + 4}" text-anchor="middle" style="${on ? 'fill:#fff' : ''}">${lbl}</text>`);
-    out.push(opText(n.args[0], prog, cx, y + 14, 'middle', 30));
+    out.push(opText(n.args[0], prog, cx, y + 14, 'middle', 30, false, 0));
   } else {
     const bx = x + 8, bw = w - 16, by = y + 12, bh = h - 20;
     out.push(wire(x, wy, bx, wy, n._in), wire(bx + bw, wy, x + w, wy, n._out));
@@ -1430,18 +1442,18 @@ function drawIns(n, x, y, id, sel, prog, out){
       if (t && d.lv && d.lv[i]){
         out.push(`<text class="op" x="${bx + bw - 8}" y="${ry}" text-anchor="end">${Math.floor(t[d.lv[i]])}</text>`);
       } else if (n.name === 'JSR' && i === 0){
-        out.push(opText(a, prog, bx + bw - 8, ry, 'end', 18, true));
+        out.push(opText(a, prog, bx + bw - 8, ry, 'end', 18, true, i));
       } else if (d && d.en && d.en[i]){
         out.push(`<text class="op" x="${bx + bw - 8}" y="${ry}" text-anchor="end"><title>${esc(a)}</title>${esc(short(a, 18))}</text>`);
       } else if (n.name === 'CPT' && i === 1){
-        out.push(opText(a, prog, bx + bw - 8, ry, 'end', 22));
+        out.push(opText(a, prog, bx + bw - 8, ry, 'end', 22, false, i));
       } else {
         const r = !LIT.test(a) && resolve(a, prog);
         const v = r && !r.dim && isAtomic(r.type) && r.type !== 'BOOL' ? r.get() : null;
         if (v !== null){
           out.push(`<text class="bv" x="${bx + bw - 8}" y="${ry}" text-anchor="end">${esc(fmtVal(v))}</text>`);
-          out.push(opText(a, prog, bx + bw - 14 - fmtVal(v).length * 6, ry, 'end', 14));
-        } else out.push(opText(a, prog, bx + bw - 8, ry, 'end', 18));
+          out.push(opText(a, prog, bx + bw - 14 - fmtVal(v).length * 6, ry, 'end', 14, false, i));
+        } else out.push(opText(a, prog, bx + bw - 8, ry, 'end', 18, false, i));
       }
     });
   }
@@ -1459,7 +1471,7 @@ function rungSVG(rung, ri, prog, minW){
 }
 
 /* ---------------- state, persistence, undo ---------------- */
-const state = {view:{kind:'routine', prog:0, rt:0}, sel:null, expanded:new Set(), udtSel:0, logic:null, hsel:null, hmiRun:false, screen:0};
+const state = {view:{kind:'routine', prog:0, rt:0}, sel:null, hl:null, expanded:new Set(), udtSel:0, logic:null, hsel:null, hmiRun:false, screen:0};
 const KEY = 'openrung.project.v1';
 const strip = (k, v) => (k === 'ast' || k === 'err' || k[0] === '_') ? undefined : v;
 const snapshot = () => JSON.stringify(P, strip);
@@ -1724,11 +1736,18 @@ $('#view').addEventListener('pointerdown', e => {
     }
     lastTap = {id:o.node, t:now};
     state.sel = {kind:'node', ri:o.ri, ser:o.ser, idx:o.idx, br:o.br, brSer:o.brSer, brIdx:o.brIdx, leg:o.leg};
+    const refs = o.node ? nodeRefs(o.node) : [], ae = e.target.closest('[data-arg]');
+    const pick = (ae && refs.find(r => r.arg === +ae.dataset.arg)) || refs[0];
+    state.hl = pick ? {key:tagKey(pick.path, curProg()), path:pick.path, prog:curProg()} : null;
     renderLadder(); renderInspector();
   } else if (rn){
-    state.sel = {kind:'rung', ri:+rn.dataset.rung};
+    state.sel = {kind:'rung', ri:+rn.dataset.rung}; state.hl = null;
     renderLadder(); renderInspector();
   }
+});
+$('#view').addEventListener('contextmenu', e => {
+  if (state.view.kind !== 'routine' || !e.target.closest('[data-id]') || !state.hl) return;
+  e.preventDefault(); showCtx(e.clientX, e.clientY, state.hl.path);
 });
 $('#view').addEventListener('click', e => { const b = e.target.closest('[data-act="addrung"]'); if (b) addRung(-1); if (e.target.closest('[data-act="stapply"]')) stApply(); });
 function stApply(){
@@ -1765,6 +1784,123 @@ function toggleOperand(node, prog){
   const r = resolve(node.args[0], prog);
   if (r && r.type === 'BOOL'){ writeTag(scoped(node.args[0], prog.tags.some(t => lc(t.name) === lc(String(node.args[0]).split(/[.\[]/)[0])) ? prog : null), 0, true); refreshLive(); }
 }
+
+/* ---------------- tag highlight + cross reference ---------------- */
+/* a reference is keyed by scope + base tag, so Timer1, Timer1.DN and Timer1.ACC all match each other */
+const tagBase = p => String(p == null ? '' : p).trim().replace(/^Program:[^.]+\./i, '').split(/[.\[]/)[0];
+function tagKey(path, prog){
+  path = String(path == null ? '' : path).trim();
+  if (!/^[A-Za-z_]/.test(path)) return null;
+  const m = /^Program:([^.]+)\./i.exec(path);
+  if (m) prog = P.programs.find(p => lc(p.name) === lc(m[1])) || null;
+  const b = lc(tagBase(path)); if (!b) return null;
+  return prog && prog.tags.some(t => lc(t.name) === b) ? P.programs.indexOf(prog) + ':' + b : 'c:' + b;
+}
+/* operands Studio 5000 calls destructive: the instruction writes them */
+const DEST = /^(Dest|Timer|Counter|Control|Structure|Storage bit|Output bit|Motion control|Return \d+)$/;
+function nodeRefs(n){
+  const d = I[n.name], labels = labelsFor(n), out = [];
+  (n.args || []).forEach((a, i) => {
+    if (a == null || (d && d.en && d.en[i]) || (n.name === 'JSR' && i < 2)) return;
+    if (n.name === 'CPT' && i === 1){ for (const w of stRefs(a)) out.push({arg:i, path:w, dest:false}); return; }
+    a = String(a).trim();
+    if (!/^[A-Za-z_]/.test(a)) return;
+    out.push({arg:i, path:a, dest:!!d && (d.k === 'o' || n.name === 'ONS' || n.name === 'SBR' || DEST.test(labels[i] || ''))});
+  });
+  return out;
+}
+function walkSer(ser, fn){ for (const n of ser || []){ if (n.t === 'br') n.legs.forEach(l => walkSer(l, fn)); else fn(n); } }
+/* tag names in structured text with their offsets; a name right before := is written */
+function stScan(src){
+  src = String(src || '');
+  const clean = src.replace(/\(\*[\s\S]*?\*\)|\/\*[\s\S]*?\*\/|\/\/.*$/gm, m => m.replace(/[^\n]/g, ' '));
+  const out = [];
+  for (const m of clean.matchAll(/[A-Za-z_][\w:]*(?:\[[^\]]*\]|\.\w+)*/g)){
+    if (!stRefs(m[0]).length) continue;
+    out.push({path:m[0], at:m.index, dest:/^\s*:=/.test(clean.slice(m.index + m[0].length)), line:src.slice(0, m.index).split('\n').length});
+  }
+  return out;
+}
+function wordAt(text, at){
+  const re = /[A-Za-z_][\w:]*(?:\[[^\]]*\]|\.\w+)*/g; let m;
+  while ((m = re.exec(text))) if (m.index <= at && at <= m.index + m[0].length) return m[0];
+  return '';
+}
+function xrefRows(key){
+  const rows = [], hit = (path, prog) => tagKey(path, prog) === key;
+  P.programs.forEach((pr, pi) => pr.routines.forEach((rt, ri) => {
+    if (rt.type === 'ST'){
+      for (const r of stScan(rt.st)) if (hit(r.path, pr)) rows.push({where:pr.name + ' / ' + rt.name, loc:'Line ' + r.line, ins:'ST', path:r.path, dest:r.dest, go:{k:'st', prog:pi, rt:ri, at:r.at, len:r.path.length}});
+      return;
+    }
+    (rt.rungs || []).forEach((rung, rgi) => {
+      ensureAst(rung); if (!rung.ast) return;
+      walkSer(rung.ast, n => { for (const r of nodeRefs(n)) if (hit(r.path, pr)) rows.push({where:pr.name + ' / ' + rt.name, loc:'Rung ' + rgi, ins:n.name, path:r.path, dest:r.dest, go:{k:'rung', prog:pi, rt:ri, ri:rgi, node:n}}); });
+    });
+  }));
+  P.hmi.screens.forEach((sc, si) => sc.objs.forEach(o => {
+    const paths = o.t === 'trend' ? (o.pens || []) : [o.tag];
+    paths.forEach((p, k) => { if (p && hit(p, null)) rows.push({where:'HMI / ' + sc.name, loc:o.t === 'trend' ? 'Pen ' + (k + 1) : o.label || '', ins:(HT[o.t] || {n:o.t}).n, path:p, dest:['mom','mnt','entry'].includes(o.t), go:{k:'hmi', screen:si, id:o.id}}); });
+  }));
+  for (const a of P.hmi.alarms) if (a.tag && hit(a.tag, null)) rows.push({where:'HMI / Alarms', loc:a.msg || '', ins:'Alarm', path:a.tag, dest:false, go:{k:'alarms'}});
+  P.io.cards.forEach((c, i) => { if (c.tag && hit(c.tag, null)) rows.push({where:'I/O / Slot ' + (i + 1), loc:c.kind, ins:'I/O card', path:c.tag, dest:CARD[c.kind] && CARD[c.kind].dir === 'in', go:{k:'io'}}); });
+  return rows;
+}
+let XR = [];
+function showXref(path, prog){
+  hideCtx();
+  const key = tagKey(path, prog);
+  if (!key){ toast('Pick a tag to cross reference.'); return; }
+  const base = tagBase(path), pi = +key.split(':')[0];
+  const scope = key[0] === 'c' ? 'Controller tag' : 'Program tag in ' + P.programs[pi].name;
+  XR = xrefRows(key);
+  const nd = XR.filter(r => r.dest).length;
+  let h = `<h2>Cross reference · <span class="mono">${esc(base)}</span></h2>
+    <p class="note">${esc(scope)}. ${XR.length} reference${XR.length === 1 ? '' : 's'}, ${nd} destructive (written). Members and bits like <span class="mono">${esc(base)}.DN</span> or <span class="mono">${esc(base)}.0</span> are included. Click a row to go there.</p>`;
+  if (!XR.length) h += `<p class="note">Nothing in the project uses this tag yet.</p>`;
+  else h += `<div class="tw"><table class="tt xr" style="min-width:600px"><thead><tr><th>Container</th><th>Location</th><th>Instruction</th><th>Operand</th><th>Destructive</th></tr></thead><tbody>${XR.map((r, i) =>
+    `<tr data-xr="${i}" tabindex="0"><td>${esc(r.where)}</td><td>${esc(short(r.loc, 28))}</td><td class="nm">${esc(r.ins)}</td><td class="nm">${esc(r.path)}</td><td>${r.dest ? '<span class="d">Yes</span>' : '<span class="muted">No</span>'}</td></tr>`).join('')}</tbody></table></div>`;
+  h += `<div class="btns"><button data-close>Close</button></div>`;
+  openModal(h);
+  const go = e => { const tr = e.target.closest('[data-xr]'); if (tr) goXref(XR[+tr.dataset.xr]); };
+  const tb = $('#sheet tbody'); if (tb){ tb.onclick = go; tb.onkeydown = e => { if (e.key === 'Enter') go(e); }; tb.querySelector('tr').focus(); }
+  state.hl = {key, path, prog:key[0] === 'c' ? (prog || null) : P.programs[pi]};
+  if (state.view.kind === 'routine') renderLadder();
+}
+function goXref(r){
+  closeModal();
+  const g = r.go;
+  if (g.k === 'rung' || g.k === 'st'){
+    state.view = {kind:'routine', prog:g.prog, rt:g.rt}; state.sel = null;
+    if (state.hl) state.hl.key = tagKey(r.path, P.programs[g.prog]);
+    renderAll();
+    if (g.k === 'st'){ const ta = $('#stsrc'); if (ta){ ta.focus(); ta.setSelectionRange(g.at, g.at + g.len); const ln = ta.value.slice(0, g.at).split('\n').length; ta.scrollTop = Math.max(0, (ln - 4) * 18); } return; }
+    const idx = REG.findIndex(o => o.node === g.node && o.ri === g.ri);
+    if (idx >= 0){ const o = REG[idx]; state.sel = {kind:'node', ri:o.ri, ser:o.ser, idx:o.idx, br:o.br, brSer:o.brSer, brIdx:o.brIdx, leg:o.leg}; renderLadder(); renderInspector(); }
+    const el = $(`#view [data-id="${idx}"]`) || document.querySelectorAll('#view .rung')[g.ri];
+    if (el) el.scrollIntoView({block:'center', inline:'nearest'});
+  } else if (g.k === 'hmi'){ state.view = {kind:'hmi', screen:g.screen}; state.hsel = g.id; renderAll(); }
+  else { state.view = {kind:g.k}; renderAll(); }
+}
+let ctxEl = null;
+function hideCtx(){ if (!ctxEl) return false; ctxEl.remove(); ctxEl = null; return true; }
+function showCtx(x, y, path){
+  hideCtx();
+  ctxEl = document.createElement('div'); ctxEl.className = 'ctxm'; ctxEl.setAttribute('role', 'menu');
+  ctxEl.innerHTML = `<button role="menuitem" data-c="xref">Go to Cross Reference <kbd>Ctrl+E</kbd></button><button role="menuitem" data-c="tag">Show in tag list</button><button role="menuitem" data-c="off">Clear highlight <kbd>Esc</kbd></button>`;
+  document.body.appendChild(ctxEl);
+  const r = ctxEl.getBoundingClientRect();
+  ctxEl.style.left = Math.min(x, innerWidth - r.width - 8) + 'px'; ctxEl.style.top = Math.min(y, innerHeight - r.height - 8) + 'px';
+  ctxEl.querySelector('button').focus();
+  ctxEl.onclick = e => {
+    const b = e.target.closest('[data-c]'); if (!b) return;
+    const hl = state.hl; hideCtx();
+    if (b.dataset.c === 'xref') showXref(path, hl && hl.prog);
+    else if (b.dataset.c === 'off'){ state.hl = null; renderLadder(); }
+    else if (hl){ const pi = hl.key[0] === 'c' ? -1 : +hl.key.split(':')[0]; state.view = {kind:'tags', scope:pi}; state.sel = null; renderAll(); }
+  };
+}
+document.addEventListener('pointerdown', e => { if (ctxEl && !ctxEl.contains(e.target)) hideCtx(); }, true);
 
 /* ---------------- inspector ---------------- */
 function tagPaths(prog){
@@ -1853,6 +1989,7 @@ JSR(Calc, 1, Input, Result);</div>
       h += `<div class="btns">`;
       if (d && d.k !== 'b') h += `<button data-act="toggle">Toggle bit</button>`;
       h += `<button data-act="branch">Branch around</button>`;
+      if (state.hl) h += `<button data-act="xref" title="Every place ${esc(tagBase(state.hl.path))} is used (Ctrl+E)">Cross reference</button>`;
       if (s.br) h += `<button data-act="leg">Add leg</button>`;
       h += `<button class="danger" data-act="del">Delete</button></div></div>`;
     }
@@ -1868,7 +2005,7 @@ JSR(Calc, 1, Input, Result);</div>
   $('#rtnames').innerHTML = prog.routines.map(r => `<option value="${esc(r.name)}">`).join('');
 }
 function helpSect(){
-  return `<div class="sect"><h3>Shortcuts</h3><p class="note"><span class="mono">Delete</span> removes the selection. <span class="mono">Ctrl+Z</span> undoes. To test logic, go online, download, and switch the controller to Run.</p></div>`;
+  return `<div class="sect"><h3>Shortcuts</h3><p class="note"><span class="mono">Delete</span> removes the selection. <span class="mono">Ctrl+Z</span> undoes. Click an instruction to highlight every place its tag is used; <span class="mono">Ctrl+E</span> or right-click opens the cross reference. To test logic, go online, download, and switch the controller to Run.</p></div>`;
 }
 $('#insp').addEventListener('change', e => {
   const t = e.target;
@@ -1908,6 +2045,7 @@ $('#insp').addEventListener('click', e => {
     case 'addarg': { const n = s.ser[s.idx]; edit(() => { n.args.push('?'); commitRung(rung); }); renderLadder(); renderInspector(); break; }
     case 'delarg': { const n = s.ser[s.idx]; edit(() => { n.args.pop(); commitRung(rung); }); renderLadder(); renderInspector(); break; }
     case 'toggle': toggleOperand(s.ser[s.idx], curProg()); break;
+    case 'xref': if (state.hl) showXref(state.hl.path, state.hl.prog); break;
     case 'branch': addBranch(); break;
     case 'leg': addLeg(); break;
     case 'del': deleteSel(); break;
@@ -1959,7 +2097,7 @@ function tagRows(label, path, type, dim, depth, tag, ti, prog){
   if (tag){
     h += `<td><select data-tf="type" data-ti="${ti}">${TYPES().concat(TYPES().includes(tag.type) ? [] : [tag.type]).map(t => `<option${t === tag.type ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select>${tag.dim ? `<span class="mono muted"> [${tag.dim}]</span>` : ''}</td>
       <td><input data-tf="desc" data-ti="${ti}" value="${esc(tag.description || '')}" aria-label="Description of ${esc(tag.name)}"></td>
-      <td><button class="danger" data-deltag="${ti}" title="Delete tag" aria-label="Delete ${esc(tag.name)}">×</button></td></tr>`;
+      <td style="white-space:nowrap"><button data-xref="${esc(tag.name)}" title="Cross reference: where ${esc(tag.name)} is used">Xref</button> <button class="danger" data-deltag="${ti}" title="Delete tag" aria-label="Delete ${esc(tag.name)}">×</button></td></tr>`;
   } else h += `<td class="mono muted">${esc(type)}${dim ? `[${dim}]` : ''}</td><td></td><td></td></tr>`;
   if (open && !(tag && tag.alias)){
     if (dim > 0){ for (let i = 0; i < dim && i < 200; i++) h += tagRows(`${label}[${i}]`, `${path}[${i}]`, type, 0, depth + 1, null, -1, prog); }
@@ -1993,6 +2131,8 @@ $('#view').addEventListener('click', e => {
   if (ex){ const k = ex.dataset.exp; state.expanded.has(k) ? state.expanded.delete(k) : state.expanded.add(k); renderTags(); return; }
   const st = t.closest('[data-set]');
   if (st){ const prog = state.view.scope >= 0 ? P.programs[state.view.scope] : null; if (resolve(st.dataset.set, prog)){ writeTag(scoped(st.dataset.set, prog), 0, true); refreshLive(); } return; }
+  const xb = t.closest('[data-xref]');
+  if (xb){ const pr = state.view.scope >= 0 ? P.programs[state.view.scope] : null; showXref(xb.dataset.xref, pr); return; }
   const del = t.closest('[data-deltag]');
   if (del){
     if (!del.classList.contains('armed')){ del.classList.add('armed'); del.textContent = 'Delete?'; setTimeout(() => { del.classList.remove('armed'); del.textContent = '×'; }, 2500); return; }
@@ -2567,6 +2707,14 @@ function renderAll(){
   renderInspector(); renderStatus(); renderCtl();
 }
 document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && lc(e.key) === 'e' && $('#modal').hidden){
+    const ae = document.activeElement;
+    if (ae && ae.id === 'stsrc'){ const w = wordAt(ae.value, ae.selectionStart); if (w){ e.preventDefault(); showXref(w, curProg()); } return; }
+    if (ae && ae.dataset && ae.dataset.op != null && ae.value){ e.preventDefault(); showXref(ae.value, curProg()); return; }
+    if (state.view.kind === 'routine' && state.hl){ e.preventDefault(); showXref(state.hl.path, state.hl.prog); return; }
+  }
+  if (e.key === 'Escape' && $('#modal').hidden && hideCtx()) return;
+  if (e.key === 'Escape' && $('#modal').hidden && state.hl && state.view.kind === 'routine' && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)){ state.hl = null; renderLadder(); return; }
   const inField = /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);
   if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !inField){ e.preventDefault(); doUndo(); return; }
   if (inField || !$('#modal').hidden) return;
