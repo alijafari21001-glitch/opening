@@ -4,6 +4,8 @@ A free, open source ladder logic editor, virtual controller and HMI that runs in
 It reads and writes the public L5X XML format, so routines move back and forth with Studio 5000.
 Independent clean-room project; not affiliated with Rockwell Automation.
 
+**Built by Ali Jafari, founder of OpenRung.**
+
 **Try it:** https://alijafari21001-glitch.github.io/opening/
 
 ![Ladder editor online in Run mode](docs/ladder.png)
@@ -11,6 +13,14 @@ Independent clean-room project; not affiliated with Rockwell Automation.
 ![HMI screen with the conveyor demo](docs/hmi.png)
 
 ![Virtual I/O rack and process models](docs/io.png)
+
+## Showcase project
+The site opens on the **Showcase** project, a tour of every feature. Start with the `Showcase_Tour` routine: each rung has a comment that says what it shows and how to try it.
+- Bit (XIC, XIO, OTE, OTL, OTU, ONS, OSR, OSF, bit addressing), timers (TON, TOF, RTO), counters (CTU, CTD), compare (EQU, NEQ, GRT, GEQ, LEQ, LIM, MEQ), math (ADD, SUB, MUL, DIV, MOD, CPT, CLR, MOV), FLL, COP, an SQO traffic light, AFI and NOP.
+- A user-defined type (`Recipe_UDT`) in an array, copied by indirect address; a subroutine with parameters (`Scale_Analog`: JSR, SBR, RET); structured text with CASE, FOR and math functions (`Stats_ST`, `Tank_Control`); servo motion (`Axis_Motion`).
+- HMI screens: **Feature tour** (buttons, lamps, numeric entry and display, bar graph, multistate indicator, trend, alarms), **Line overview** (conveyor model), **Tank** and **Axis**.
+- Go online, Download, Run, then use the HMI. Drag the I/O sliders, save the project as `.json`, and export any routine as L5X.
+To get it back later: **Project › Load the showcase project**.
 
 ## Use it
 - Open the link above, or download `index.html` and open it in any browser (works offline).

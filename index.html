@@ -47,6 +47,8 @@ textarea{font-family:var(--f-mono);font-size:12.5px;width:100%;resize:vertical}
 .top{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding-block:8px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));background:var(--panel);border-bottom:1px solid var(--line)}
 .brand{font:600 18px/1 var(--f-head);letter-spacing:.02em;display:flex;align-items:baseline;gap:10px}
 .brand .proj{font:500 13px var(--f-mono);color:var(--muted)}
+.brand .by{font:500 12px var(--f-ui);color:var(--muted);letter-spacing:0}
+.credit{font-size:15px}
 .lamp{width:10px;height:10px;border-radius:50%;background:var(--line);display:inline-block}
 .lamp.live{background:var(--on);box-shadow:0 0 0 3px var(--on-soft)}
 .actions{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto}
@@ -329,7 +331,7 @@ button:disabled{opacity:.45;cursor:default}
 <body>
 <div id="app">
   <header class="top">
-    <div class="brand">OpenRung <span class="proj" id="projName"></span></div>
+    <div class="brand">OpenRung <span class="by" title="Founder and builder">by Ali Jafari</span> <span class="proj" id="projName"></span></div>
     <nav class="vtabs" aria-label="Views"><button id="tabLogic" class="cur">Logic</button><button id="tabHmi">HMI</button></nav>
     <div class="ctl" id="ctl" aria-label="Controller">
       <span class="lamp" id="lamp"></span><button id="ctlState" class="ctlstate" title="Controller details">Starting…</button>
@@ -2391,6 +2393,7 @@ function showExport(){
 }
 function showAbout(){
   openModal(`<h2>About OpenRung</h2>
+    <p class="credit">Built by <b>Ali Jafari</b>, founder of OpenRung.</p>
     <p>OpenRung is a free, open source ladder logic editor, virtual controller and HMI that runs in the browser. It is an independent project, written from scratch, and is not affiliated with or endorsed by Rockwell Automation. Studio 5000, RSLogix and FactoryTalk are trademarks of their owners.</p>
     <p><b>Three parts on one page.</b> The editor holds the offline project. The virtual controller runs in a background worker, owns the tag values and scans the logic every 10 ms. The HMI and the editor both go online to it, the same way programming software talks to a real controller. Open the page in a second tab and it connects to the same controller; add <span class="mono">#hmi</span> to the link to open straight into the operator screen.</p>
     <p><b>Works with other tools</b> through the L5X XML format for ladder and structured text routines, and through the optional bridge app for Modbus TCP and OPC UA.</p>
@@ -2413,7 +2416,7 @@ function showProject(){
     <h3 class="sth">Recent projects in this browser</h3>
     <div class="recent">${rec.length ? rec.map(r => `<div class="rrec"><span class="mono">${esc(r.name)}</span><span class="muted">${new Date(r.at).toLocaleString()}</span><button data-ropen="${esc(r.name)}"${r.name === P.name ? ' disabled' : ''}>${r.name === P.name ? 'Open now' : 'Open'}</button><button class="danger" data-rdel="${esc(r.name)}"${r.name === P.name ? ' disabled' : ''}>Remove</button></div>`).join('') : '<p class="note">None yet.</p>'}</div>
     <h3 class="sth">Start over</h3>
-    <div class="addrow"><div class="field"><label for="npName">New controller name</label><input id="npName" value="MyProject" class="mono"></div><button id="npGo">New empty project</button><button id="npSample">${$('#sampleL5X').textContent.trim() ? 'Load the Lab 5 sample' : 'Load the demo project'}</button></div>
+    <div class="addrow"><div class="field"><label for="npName">New controller name</label><input id="npName" value="MyProject" class="mono"></div><button id="npGo">New empty project</button><button id="npSample">${$('#sampleL5X').textContent.trim() ? 'Load the Lab 5 sample' : 'Load the showcase project'}</button></div>
     <p class="note" id="pjNote">The current project stays in the recent list when you switch.</p>
     <div class="btns"><button data-close>Close</button></div>`);
   const swap = p => { save(true); pushUndo(); P = normalize(p); reparseAll(); state.view = {kind:'routine', prog:0, rt:0}; state.sel = null; state.hsel = null; ALARMS.reset(); save(true); closeModal(); renderAll(); };
@@ -3055,10 +3058,10 @@ $('#view').addEventListener('change', e => {
 /* ---------------- sample project ---------------- */
 function sampleProject(){
   const l5x = $('#sampleL5X').textContent.trim();
-  P = emptyProject(l5x ? 'Lab5' : 'Demo'); P.programs = [];
+  P = emptyProject(l5x ? 'Lab5' : 'Showcase'); P.programs = [];
   if (l5x) { try { importL5X(l5x); } catch(e){ P = emptyProject('Lab5'); } }
   normalize(P);
-  addDemo(P);
+  addDemo(P); addShowcase(P);
   return P;
 }
 /* the demo cell: ladder timers and counters, a structured text tank routine called by JSR, I/O cards, two process models and two HMI screens */
@@ -3179,11 +3182,129 @@ END_IF;`});
   return p;
 }
 
+/* the feature tour: one rung per instruction family with a comment that says what it shows, a UDT recipe table, a subroutine with parameters, an ST routine and a Feature tour HMI screen */
+function addShowcase(p){
+  const prog = p.programs[0];
+  if (!prog || prog.routines.some(r => r.name === 'Showcase_Tour')) return p;
+  if (!p.udts.some(u => u.name === 'Recipe_UDT')) p.udts.push({name:'Recipe_UDT', description:'One recipe: batch size, oven setpoint, mix time', members:[
+    {name:'Batch_Size', type:'DINT', dim:0, description:'Cycles per batch'},
+    {name:'Temp_SP', type:'REAL', dim:0, description:'Oven setpoint, °C'},
+    {name:'Mix_Time', type:'DINT', dim:0, description:'Mix time, ms'},
+    {name:'Use_Mixer', type:'BOOL', dim:0, description:'Run the mixer in this recipe'}]});
+  const add = (name, type, desc, dim) => { if (!p.tags.some(t => t.name === name)) p.tags.push(newTag(name, type, dim || 0, desc)); };
+  const prev = P; P = p;
+  for (const [n, d] of [['Tour_Button','Press me (HMI Feature tour screen)'],['Clear_PB','Clear the tour counters'],['Tour_ONS','ONS storage bit'],['Osr_Sto','OSR storage bit'],['Osf_Sto','OSF storage bit'],
+    ['Pressed_Pulse','One scan pulse when Tour_Button is pressed'],['Released_Pulse','One scan pulse when Tour_Button is released'],['Odd_Lamp','On after an odd number of presses'],['Five_Presses','Latched at 5 presses'],
+    ['Afterglow_Lamp','Stays on 3 s after release (TOF)'],['Liftoff_Lamp','Countdown reached zero'],['Temp_In_Band','Oven temperature between 40 and 60 °C'],['Over_Temp','Oven above the recipe setpoint'],
+    ['Special_Recipe','Recipe 2 is selected'],['DI0_And_DI1','Inputs 0 and 1 of slot 1 both on (MEQ)'],['Lights_On','Run the traffic light sequencer'],['Never_On','Behind an AFI, so it never turns on']]) add(n, 'BOOL', d);
+  for (const [n, d] of [['Press_Count','Tour_Button presses'],['Math_A','Math input A'],['Math_B','Math input B'],['Sum','A + B'],['Diff','A − B'],['Product','A × B'],['Quotient','A ÷ B'],['Remainder','A MOD B'],
+    ['Recipe_Sel','Selected recipe, 0 to 2'],['Light_Out','Traffic light outputs: .0 red, .1 yellow, .2 green'],['Light_State','0 off, 1 green, 2 yellow, 3 red (set in ST)'],['Total_Batch','Sum of all recipe batch sizes (ST FOR loop)'],['Idx','ST loop index']]) add(n, 'DINT', d);
+  for (const [n, d] of [['Oven_Temp','Oven temperature, °C, scaled from Slot3_AI[0]'],['Oven_Temp_F','Oven temperature, °F (CPT)'],['Scale_In','Scale_Analog input'],['Scale_Out','Scale_Analog result'],
+    ['Wave_Angle','Sine wave angle, rad'],['Sine_Wave','Sine wave for the trend (ST)'],['Root_Of_Sum','SQRT(ABS(Sum)) (ST)']]) add(n, 'REAL', d);
+  add('Afterglow', 'TIMER', 'Off delay timer'); add('Hold_Time', 'TIMER', 'Retentive: total time the button was held'); add('Light_Step', 'TIMER', 'Traffic light step timer');
+  add('Countdown', 'COUNTER', 'Counts down from 10 on each press'); add('Light_Seq', 'CONTROL', 'SQO position control');
+  add('Light_Pattern', 'DINT', 'SQO steps (element 0 is the start state)', 6); add('History', 'DINT', 'FLL demo: cleared by Clear', 10);
+  add('Recipes', 'Recipe_UDT', 'Recipe table (array of a user-defined type)', 3); add('Active_Recipe', 'Recipe_UDT', 'Recipe copied from Recipes[Recipe_Sel] by COP');
+  P = prev;
+  const T = n => p.tags.find(t => t.name === n);
+  T('Recipes').value = [[3, 50, 4000, 1], [5, 45, 6000, 0], [8, 58, 9000, 1]].map(([b, s, m, u]) => ({Batch_Size:b, Temp_SP:s, Mix_Time:m, Use_Mixer:u}));
+  T('Light_Pattern').value = [0, 4, 4, 2, 1, 1]; T('Math_A').value = 17; T('Math_B').value = 5; T('Countdown').value.ACC = 10; T('Lights_On').value = 1;
+  prog.routines.unshift({name:'Showcase_Tour', type:'RLL', rungs:[
+    {comment:'Welcome to OpenRung, built by Ali Jafari (founder). This project is a tour of the whole app. Each rung shows one feature and says how to try it. Click Go online, Download, then Run, and open the HMI tab: the Feature tour screen drives these rungs. The other routines show timers and counters (Demo_Timers), structured text (Tank_Control, Stats_ST), a subroutine with parameters (Scale_Analog) and servo motion (Axis_Motion).', text:'NOP();'},
+    {comment:'BIT · ONS and ADD. Each press of Tour_Button adds 1 to Press_Count, once per press, no matter how long you hold it.', text:'XIC(Tour_Button)ONS(Tour_ONS)ADD(Press_Count,1,Press_Count);'},
+    {comment:'BIT · OSR and OSF. One scan pulses on the rising and falling edge of the same button.', text:'XIC(Tour_Button)OSR(Osr_Sto,Pressed_Pulse);'},
+    {comment:'', text:'XIC(Tour_Button)OSF(Osf_Sto,Released_Pulse);'},
+    {comment:'BIT · bit addressing. Bit 0 of a DINT is on when the number is odd, so this lamp toggles on every press.', text:'XIC(Press_Count.0)OTE(Odd_Lamp);'},
+    {comment:'BIT · OTL latch. After the fifth press the lamp latches on and stays on until Clear.', text:'XIC(Released_Pulse)GEQ(Press_Count,5)OTL(Five_Presses);'},
+    {comment:'Clear: OTU unlatch, CLR, RES, MOV and FLL in one branched rung.', text:'XIC(Clear_PB)[OTU(Five_Presses) ,CLR(Press_Count) ,RES(Hold_Time) ,MOV(10,Countdown.ACC) ,FLL(0,History[0],10) ];'},
+    {comment:'TIMER · TOF off delay. The lamp stays on for 3 s after you let go of the button.', text:'XIC(Tour_Button)TOF(Afterglow,3000,0);'},
+    {comment:'', text:'XIC(Afterglow.DN)OTE(Afterglow_Lamp);'},
+    {comment:'TIMER · RTO retentive. Adds up how long the button has been held in total, up to 10 s. Only RES (Clear) zeroes it.', text:'XIC(Tour_Button)RTO(Hold_Time,10000,0);'},
+    {comment:'COUNTER · CTD. Counts down from 10 on every press; the lamp lights at zero. (CTU is in Demo_Timers.)', text:'XIC(Pressed_Pulse)CTD(Countdown,0,10);'},
+    {comment:'', text:'LEQ(Countdown.ACC,0)OTE(Liftoff_Lamp);'},
+    {comment:'SUBROUTINE · JSR with parameters. Slot3_AI[0] (drag its slider on the I/O page) goes in; Scale_Analog uses SBR, CPT and RET to send back °C.', text:'JSR(Scale_Analog,1,Slot3_AI[0],Oven_Temp);'},
+    {comment:'MATH · CPT computes a whole expression: °C to °F.', text:'CPT(Oven_Temp_F,Oven_Temp*1.8+32);'},
+    {comment:'MATH · ADD, SUB, MUL, DIV and MOD in series. Change Math_A and Math_B on the HMI. DINT division truncates like a real controller.', text:'ADD(Math_A,Math_B,Sum)SUB(Math_A,Math_B,Diff)MUL(Math_A,Math_B,Product)DIV(Math_A,Math_B,Quotient)MOD(Math_A,Math_B,Remainder);'},
+    {comment:'UDT · Recipes is an array of the user-defined type Recipe_UDT (see Data Types). COP copies the selected element, by indirect address, into Active_Recipe. LIM guards the index.', text:'LIM(0,Recipe_Sel,2)COP(Recipes[Recipe_Sel],Active_Recipe,1);'},
+    {comment:'UDT members work like any tag: the recipe batch size becomes the preset of the CTU in Demo_Timers.', text:'MOV(Active_Recipe.Batch_Size,Cycle_Count.PRE);'},
+    {comment:'COMPARE · LIM, GRT and EQU. The oven is in band between 40 and 60 °C, and over temperature above the recipe setpoint (that one raises an HMI alarm).', text:'LIM(40.0,Oven_Temp,60.0)OTE(Temp_In_Band);'},
+    {comment:'', text:'GRT(Oven_Temp,Active_Recipe.Temp_SP)OTE(Over_Temp);'},
+    {comment:'COMPARE · EQU and NEQ in series: on while recipe 2 is selected and loaded.', text:'EQU(Recipe_Sel,2)NEQ(Active_Recipe.Batch_Size,Recipes[0].Batch_Size)OTE(Special_Recipe);'},
+    {comment:'COMPARE · MEQ masked equal. Turn on inputs 0 and 1 of the slot 1 card on the I/O page.', text:'MEQ(Slot1_DI,3,3)OTE(DI0_And_DI1);'},
+    {comment:'SEQUENCER · a traffic light. A self-resetting TON steps SQO through Light_Pattern (green, green, yellow, red, red); bits .0 .1 .2 of Light_Out are the lamps.', text:'XIC(Lights_On)XIO(Light_Step.DN)TON(Light_Step,1500,0);'},
+    {comment:'', text:'XIC(Light_Step.DN)SQO(Light_Pattern[0],7,Light_Out,Light_Seq,5,0);'},
+    {comment:'', text:'XIO(Lights_On)CLR(Light_Out);'},
+    {comment:'STRUCTURED TEXT · Stats_ST shows CASE, FOR over a UDT array, and math functions (SIN, SQRT, ABS). Its sine wave is on the Feature tour trend.', text:'JSR(Stats_ST,0);'},
+    {comment:'AFI always false: a quick way to switch a rung off while testing. Never_On never turns on.', text:'AFI()OTE(Never_On);'},
+    {comment:'Next: HMI › Axis for servo motion (MSO, MAH, MAJ, MAM, MAS in Axis_Motion), I/O Configuration for the rack and the conveyor and tank models, Project to save or open a .json project, and Export L5X to take any routine into Studio 5000. Open a second tab with #hmi on the link for an operator view of the same controller.', text:'NOP();'},
+  ]});
+  prog.routines.push({name:'Scale_Analog', type:'RLL', rungs:[
+    {comment:'Subroutine with parameters. SBR receives the raw 0 to 100 % signal from JSR.', text:'SBR(Scale_In);'},
+    {comment:'Scale 0 to 100 % to 0 to 150 °C.', text:'CPT(Scale_Out,Scale_In*1.5);'},
+    {comment:'RET hands the result back to the JSR return parameter.', text:'RET(Scale_Out);'}]});
+  prog.routines.push({name:'Stats_ST', type:'ST', rungs:[], st:
+`(* Structured text tour, called by JSR from Showcase_Tour. *)
+
+(* CASE: name the traffic light state for the multistate indicator *)
+CASE Light_Out OF
+  4: Light_State := 1;
+  2: Light_State := 2;
+  1: Light_State := 3;
+ELSE
+  Light_State := 0;
+END_CASE;
+
+(* FOR loop over an array of a user-defined type *)
+Total_Batch := 0;
+FOR Idx := 0 TO 2 DO
+  Total_Batch := Total_Batch + Recipes[Idx].Batch_Size;
+END_FOR;
+
+(* Math functions: a sine wave for the trend, and a square root *)
+Wave_Angle := Wave_Angle + 0.005;
+IF Wave_Angle > 6.2832 THEN
+  Wave_Angle := Wave_Angle - 6.2832;
+END_IF;
+Sine_Wave := 50.0 + 40.0 * SIN(Wave_Angle);
+Root_Of_Sum := SQRT(ABS(Sum));`});
+  const O = (t, x, y, w, h, extra) => ({id:newId(), t, x, y, w, h, tag:'', ...JSON.parse(JSON.stringify(HT[t].d)), ...extra});
+  if (!p.hmi.screens.some(sc => sc.name === 'Feature tour')){
+    for (const sc of p.hmi.screens) for (const o of sc.objs) if (o.t === 'nav') o.target++;
+    p.hmi.screens.unshift({name:'Feature tour', objs:[
+      O('text', 0, 0, 30, 2, {label:'OpenRung showcase · built by Ali Jafari, founder', size:'l'}),
+      O('mom', 0, 2, 5, 2, {tag:'Tour_Button', label:'Press me', color:'green'}), O('mom', 6, 2, 5, 2, {tag:'Clear_PB', label:'Clear', color:'grey'}),
+      O('num', 12, 2, 5, 2, {tag:'Press_Count', label:'Presses'}), O('num', 18, 2, 5, 2, {tag:'Hold_Time.ACC', label:'Held (RTO)', units:'ms'}),
+      O('lamp', 0, 5, 4, 3, {tag:'Odd_Lamp', label:'Odd', color:'blue'}), O('lamp', 5, 5, 4, 3, {tag:'Five_Presses', label:'5 presses', color:'amber'}),
+      O('lamp', 10, 5, 4, 3, {tag:'Afterglow_Lamp', label:'Afterglow', color:'green'}), O('lamp', 15, 5, 4, 3, {tag:'Liftoff_Lamp', label:'Liftoff', color:'red'}),
+      O('num', 20, 5, 5, 2, {tag:'Countdown.ACC', label:'Countdown'}),
+      O('entry', 0, 9, 4, 3, {tag:'Math_A', label:'A', min:-1000, max:1000}), O('entry', 5, 9, 4, 3, {tag:'Math_B', label:'B', min:-1000, max:1000}),
+      O('num', 10, 9, 4, 2, {tag:'Sum', label:'A+B'}), O('num', 15, 9, 4, 2, {tag:'Product', label:'A×B'}), O('num', 20, 9, 4, 2, {tag:'Quotient', label:'A÷B'}), O('num', 25, 9, 4, 2, {tag:'Remainder', label:'A MOD B'}),
+      O('entry', 0, 13, 4, 3, {tag:'Recipe_Sel', label:'Recipe', min:0, max:2}),
+      O('num', 5, 13, 4, 2, {tag:'Active_Recipe.Batch_Size', label:'Batch'}), O('num', 10, 13, 4, 2, {tag:'Active_Recipe.Temp_SP', label:'SP °C'}),
+      O('num', 15, 13, 4, 2, {tag:'Oven_Temp', label:'Oven °C', dec:1}), O('num', 20, 13, 4, 2, {tag:'Oven_Temp_F', label:'Oven °F', dec:1}),
+      O('lamp', 25, 13, 4, 3, {tag:'Temp_In_Band', label:'In band', color:'green'}),
+      O('bar', 30, 2, 2, 14, {tag:'Oven_Temp', label:'°C', min:0, max:150, color:'red'}),
+      O('mnt', 0, 17, 5, 2, {tag:'Lights_On', label:'Lights', color:'blue'}),
+      O('lamp', 6, 17, 3, 3, {tag:'Light_Out.0', label:'Red', color:'red'}), O('lamp', 10, 17, 3, 3, {tag:'Light_Out.1', label:'Yellow', color:'amber'}), O('lamp', 14, 17, 3, 3, {tag:'Light_Out.2', label:'Green', color:'green'}),
+      O('multi', 18, 17, 6, 2, {tag:'Light_State', label:'Light (ST CASE)', states:'0=Off:grey\n1=Go:green\n2=Slow:amber\n3=Stop:red'}),
+      O('nav', 25, 17, 7, 2, {label:'Line overview', target:1}), O('nav', 25, 20, 7, 2, {label:'Tank screen', target:2}), O('nav', 25, 23, 7, 2, {label:'Axis screen', target:3}),
+      O('trend', 0, 21, 24, 8, {pens:['Sine_Wave','Oven_Temp','',''], span:30, min:0, max:150}),
+      O('alarms', 0, 30, 32, 5),
+    ]});
+    const back = (name, x, y) => { const sc = p.hmi.screens.find(s => s.name === name); if (sc && !sc.objs.some(o => o.t === 'nav' && o.target === 0)) sc.objs.push(O('nav', x, y, 7, 2, {label:'Feature tour', target:0})); };
+    back('Line overview', 25, 8); back('Tank', 25, 8); back('Axis', 25, 15);
+  }
+  if (!p.hmi.alarms.some(a => a.tag === 'Over_Temp')) p.hmi.alarms.push({id:newId(), tag:'Over_Temp', cond:'on', value:0, msg:'Oven above the recipe setpoint', sev:'High'});
+  P = p; applyLiterals(); P = prev;
+  return p;
+}
+
 /* ---------------- boot ---------------- */
 P = load();
 if (P){
   const old = !P.hmi; normalize(P); reparseAll();
   if (old && P.name === 'Lab5' && P.programs.some(pr => pr.routines.some(r => r.name === 'Demo_Timers'))) addDemo(P);
+  if ((P.name === 'Demo' || P.name === 'Lab5') && P.programs.some(pr => pr.routines.some(r => r.name === 'Axis_Motion'))){ addShowcase(P); reparseAll(); }
 } else P = sampleProject();
 if (location.hash === '#hmi'){ state.view = {kind:'hmi', screen:0}; state.hmiRun = true; }
 renderAll();
