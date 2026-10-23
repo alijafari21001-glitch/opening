@@ -257,6 +257,17 @@ button:disabled{opacity:.45;cursor:default}
 .hbar .fill{width:100%;background:var(--hc)}
 .hbar b{font:600 11px var(--f-mono)}
 .htank{height:100%;display:flex;flex-direction:column;gap:3px}
+.haxis{height:100%;display:flex;flex-direction:column;justify-content:space-between;gap:2px;padding:6px 10px;border-radius:6px;background:var(--hmi-num);border:1px solid var(--line);overflow:hidden}
+.haxis .axhd{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.haxis .axhd b{font:600 17px/1.1 var(--f-mono);font-variant-numeric:tabular-nums}
+.haxis .axhd i{font:normal 11px var(--f-mono);color:var(--muted);margin-left:4px}
+.haxis .rail{position:relative;height:16px;margin:0 7px;border-bottom:3px solid var(--line);display:flex;justify-content:space-between;align-items:flex-start}
+.haxis .rail span{font:10px var(--f-mono);color:var(--muted);transform:translateY(18px);margin:0 -7px}
+.haxis .car{position:absolute;bottom:-3px;width:14px;height:14px;margin-left:-7px;border-radius:3px;background:var(--c-blue);transition:left .1s linear}
+.haxis .axst{display:flex;gap:4px;align-items:center;flex-wrap:wrap;margin-top:14px}
+.haxis .axc{font:500 10px var(--f-ui);padding:1px 6px;border-radius:9px;border:1px solid var(--line);color:var(--muted)}
+.haxis .axc.on{background:var(--hc);border-color:var(--hc);color:#fff}
+.haxis em{font:normal 11px var(--f-mono);color:var(--muted);margin-left:auto;font-style:normal}
 .vessel{flex:1;position:relative;border:2px solid var(--fg);border-top-width:1px;border-radius:4px 4px 14px 14px;overflow:hidden;background:var(--sunk)}
 .vessel .fill{position:absolute;left:0;right:0;bottom:0;background:color-mix(in srgb,var(--hc) 75%,transparent);transition:height .2s linear}
 .vessel b{position:absolute;inset:auto 0 45%;text-align:center;font:600 15px var(--f-mono);text-shadow:0 0 3px var(--box)}
@@ -369,10 +380,21 @@ const BUILTIN = {
   TIMER:   [['PRE','DINT'],['ACC','DINT'],['EN','BOOL'],['TT','BOOL'],['DN','BOOL']],
   COUNTER: [['PRE','DINT'],['ACC','DINT'],['CU','BOOL'],['CD','BOOL'],['DN','BOOL'],['OV','BOOL'],['UN','BOOL']],
   CONTROL: [['LEN','DINT'],['POS','DINT'],['EN','BOOL'],['EU','BOOL'],['DN','BOOL'],['EM','BOOL'],['ER','BOOL'],['UL','BOOL'],['IN','BOOL'],['FD','BOOL']],
+  MOTION_INSTRUCTION: [['EN','BOOL'],['DN','BOOL'],['ER','BOOL'],['PC','BOOL'],['IP','BOOL'],['AC','BOOL'],['ACCEL','BOOL'],['DECEL','BOOL'],
+    ['ERR','INT'],['STATUS','SINT'],['STATE','SINT'],['SEGMENT','DINT'],['EXERR','SINT']],
 };
+/* a simulated servo axis: the third column is the starting value */
+const AXIS_MEMBERS = [['ActualPosition','REAL'],['ActualVelocity','REAL'],['CommandPosition','REAL'],['CommandVelocity','REAL'],
+  ['ServoActionStatus','BOOL'],['DriveEnableStatus','BOOL'],['AxisHomedStatus','BOOL'],['AccelStatus','BOOL'],['DecelStatus','BOOL'],
+  ['MoveStatus','BOOL'],['JogStatus','BOOL'],['HomingStatus','BOOL'],['StoppingStatus','BOOL'],['AxisFault','DINT'],
+  ['MaximumSpeed','REAL',100],['MaximumAcceleration','REAL',1000],['MaximumDeceleration','REAL',1000],['HomePosition','REAL',0]];
+const AXIS_TYPES = ['AXIS_CIP_DRIVE','AXIS_VIRTUAL'];
+for (const t of AXIS_TYPES) BUILTIN[t] = AXIS_MEMBERS;
+/* types whose L5X form is not decorated data: tags of these types export without values */
+const NODATA = new Set([...AXIS_TYPES, 'MOTION_INSTRUCTION']);
 const isAtomic = t => Object.prototype.hasOwnProperty.call(ATOMIC, t);
 function membersOf(type){
-  if (BUILTIN[type]) return BUILTIN[type].map(([name,t]) => ({name, type:t, dim:0}));
+  if (BUILTIN[type]) return BUILTIN[type].map(([name,t,def]) => ({name, type:t, dim:0, def}));
   const u = getP().udts.find(u => lc(u.name) === lc(type));
   return u ? u.members : null;
 }
@@ -380,7 +402,7 @@ function instantiate(type, dim){
   if (dim > 0) return Array.from({length:dim}, () => instantiate(type, 0));
   if (isAtomic(type)) return 0;
   const o = {};
-  for (const m of membersOf(type) || []) o[m.name] = instantiate(m.type, m.dim || 0);
+  for (const m of membersOf(type) || []) o[m.name] = m.def != null ? m.def : instantiate(m.type, m.dim || 0);
   return o;
 }
 function wrap(type, v){
@@ -479,6 +501,110 @@ function evalExpr(src, c){
   try { return add(); } catch(e){ return 0; }
 }
 
+/* ---------------- motion: Logix-style axis instructions and a simulated servo ----------------
+   Each instruction has the operands, in the same order and with the same option words, as the
+   L5X neutral text, so rungs move to and from other tools. The axis follows its command exactly. */
+const EN = {
+  speed:['Units per sec','% of Maximum'], accel:['Units per sec2','% of Maximum'], jerk:['Units per sec3','% of Maximum','% of Time'],
+  profile:['Trapezoidal','S-Curve'], merge:['Disabled','Enabled'], mspeed:['Programmed','Current'], yesno:['No','Yes'],
+  lock:['None','Immediate Forward Only','Immediate Reverse Only','Position Forward Only','Position Reverse Only'],
+  stop:['All','Jog','Move','Gear','Home','Tune','Test','Time Cam','Position Cam','Master Offset Move','Direct Control'],
+};
+const MOPS = {'Speed units':'speed','Accel units':'accel','Decel units':'accel','Jerk units':'jerk','Profile':'profile','Merge':'merge','Merge speed':'mspeed',
+  'Lock direction':'lock','Stop type':'stop','Change decel':'yesno','Change decel jerk':'yesno'};
+/* an option operand may be written as its word or its number */
+function opt(arg, list, c){
+  const s = String(arg == null ? '' : arg).trim(), k = list.findIndex(x => lc(x) === lc(s));
+  return k >= 0 ? k : Math.trunc(num(s, c));
+}
+const AX = new WeakMap(); // planner state per axis, outside the tag so it never reaches files
+const axisOf = (arg, c) => { const v = struct(arg, c); return v && 'ServoActionStatus' in v ? v : null; };
+const axState = ax => AX.get(ax) || (AX.set(ax, {mode:'idle'}), AX.get(ax));
+function endMotion(st, ok){ if (st.mc){ st.mc.IP = 0; if (ok) st.mc.PC = 1; } st.mc = null; st.mode = 'idle'; }
+function motionIns(desc, extra, def, kind){
+  const p = ['Axis','Motion control', ...extra], en = {};
+  extra.forEach((n, k) => { if (MOPS[n]) en[k + 2] = EN[MOPS[n]]; });
+  return {k:'b', g:kind.toUpperCase(), d:desc, p, def:['?','?', ...def], en, sa:1, st:['EN','DN','ER','IP','PC'], motion:true, x:(a,i,c) => {
+    const mc = struct(a[1], c);
+    if (!mc || c.dry) return i;
+    if (i && !mc.EN){
+      mc.DN = mc.ER = mc.PC = mc.IP = 0; mc.ERR = 0;
+      const ax = axisOf(a[0], c);
+      if (!ax){ mc.ER = 1; mc.ERR = 13; }
+      else startMotion(kind, ax, mc, a, c);
+    }
+    mc.EN = i ? 1 : 0;
+    return i;
+  }};
+}
+function startMotion(kind, ax, mc, a, c){
+  const st = axState(ax), on = !!ax.ServoActionStatus;
+  const fail = code => { mc.ER = 1; mc.ERR = code; };
+  const rate = (v, units, max) => units === 1 ? Math.abs(v) * max / 100 : Math.abs(v);
+  switch (kind){
+    case 'on': if (ax.AxisFault){ fail(7); return; } ax.ServoActionStatus = ax.DriveEnableStatus = 1; mc.DN = 1; return;
+    case 'off': endMotion(st, false); ax.ServoActionStatus = ax.DriveEnableStatus = 0; ax.ActualVelocity = ax.CommandVelocity = 0; mc.DN = 1; return;
+    case 'reset': ax.AxisFault = 0; mc.DN = 1; return;
+    case 'home':
+      /* immediate homing: the present position becomes the home position */
+      if (st.mode !== 'idle'){ fail(16); return; }
+      ax.ActualPosition = ax.CommandPosition = ax.HomePosition; ax.AxisHomedStatus = 1; mc.DN = 1; mc.PC = 1; return;
+    case 'stop': {
+      const type = opt(a[2], EN.stop, c);
+      const hit = st.mode !== 'idle' && st.mode !== 'stop' && (type === 0 || (type === 1 && st.mode === 'jog') || (type === 2 && st.mode === 'move'));
+      mc.DN = 1;
+      if (!hit && st.mode !== 'stop'){ mc.PC = 1; return; }
+      if (opt(a[3], EN.yesno, c) === 1) st.dec = rate(num(a[4], c), opt(a[5], EN.accel, c), ax.MaximumDeceleration);
+      if (st.mode !== 'stop') endMotion(st, false); else if (st.mc && st.mc !== mc) st.mc.IP = 0;
+      st.mode = 'stop'; st.mc = mc; mc.IP = 1; return;
+    }
+    case 'jog': case 'move': {
+      if (!on){ fail(5); return; }
+      const o = kind === 'jog' ? 2 : 3;
+      const vmax = rate(num(a[o + 1], c), opt(a[o + 2], EN.speed, c), ax.MaximumSpeed);
+      const acc = rate(num(a[o + 3], c), opt(a[o + 4], EN.accel, c), ax.MaximumAcceleration);
+      const dec = rate(num(a[o + 5], c), opt(a[o + 6], EN.accel, c), ax.MaximumDeceleration);
+      if (!(acc > 0) || !(dec > 0)){ fail(acc > 0 ? 9 : 8); return; }
+      endMotion(st, false);
+      Object.assign(st, {mode:kind, mc, vmax, acc, dec});
+      if (kind === 'jog') st.dir = num(a[2], c) ? -1 : 1;
+      else { const mt = Math.trunc(num(a[2], c)), pos = num(a[3], c); st.target = mt === 1 ? ax.ActualPosition + pos : pos; }
+      mc.DN = 1; mc.IP = 1; return;
+    }
+  }
+}
+/* one planner step for every axis tag; with the controller out of Run, servos switch off */
+function stepAxes(proj, dt, run){
+  const s = dt / 1000;
+  const each = list => { for (const t of list) if (AXIS_TYPES.includes(t.type)) (t.dim ? t.value : [t.value]).forEach(ax => ax && stepAxis(ax, s, run)); };
+  each(proj.tags); for (const pr of proj.programs) each(pr.tags);
+}
+function stepAxis(ax, s, run){
+  const st = axState(ax);
+  if (!run && ax.ServoActionStatus){ endMotion(st, false); ax.ServoActionStatus = ax.DriveEnableStatus = 0; }
+  let v = ax.ActualVelocity, pos = ax.ActualPosition;
+  const v0 = v, toward = (goal, a) => v < goal ? Math.min(goal, v + a * s) : Math.max(goal, v - a * s);
+  if (!ax.ServoActionStatus){ if (st.mode !== 'idle') endMotion(st, false); v = 0; }
+  else if (st.mode === 'jog') v = toward(st.dir * st.vmax, Math.abs(st.dir * st.vmax) > Math.abs(v) ? st.acc : st.dec);
+  else if (st.mode === 'stop'){ v = toward(0, st.dec || ax.MaximumDeceleration || 1000); if (!v) endMotion(st, true); }
+  else if (st.mode === 'move'){
+    const d = st.target - pos, dir = Math.sign(d) || 1;
+    const want = dir * Math.min(st.vmax, Math.sqrt(2 * st.dec * Math.abs(d)));
+    v = Math.abs(want) < Math.abs(v) && Math.sign(want) === Math.sign(v) ? want : toward(want, st.acc);
+  }
+  pos += v * s;
+  if (st.mode === 'move'){
+    const d = st.target - pos;
+    if (Math.abs(d) < 1e-6 || Math.sign(d) !== Math.sign(st.target - ax.ActualPosition)){ pos = st.target; v = 0; endMotion(st, true); }
+  }
+  ax.ActualPosition = ax.CommandPosition = Math.fround(pos);
+  ax.ActualVelocity = ax.CommandVelocity = Math.fround(v);
+  ax.AccelStatus = Math.abs(v) > Math.abs(v0) + 1e-9 ? 1 : 0;
+  ax.DecelStatus = Math.abs(v) < Math.abs(v0) - 1e-9 ? 1 : 0;
+  ax.JogStatus = st.mode === 'jog' ? 1 : 0; ax.MoveStatus = st.mode === 'move' ? 1 : 0; ax.StoppingStatus = st.mode === 'stop' ? 1 : 0;
+  if (st.mc) st.mc.IP = 1;
+}
+
 /* ---------------- instruction set ---------------- */
 const intDiv = (a, b) => b ? a / b : 0;
 const math = f => (a, i, c) => { if (i) setn(a[2], f(num(a[0], c), num(a[1], c)), c); return i; };
@@ -555,6 +681,16 @@ const I = {
     x:(a,i,c) => { if (i && c.params) a.forEach((x, j) => { if (j < c.params.length) setn(x, c.params[j], c); }); return i; }},
   RET:{k:'b', g:'RET', d:'Return from subroutine', p:[], va:args => args.map((_, j) => 'Return ' + (j + 1)),
     x:(a,i,c) => { if (i){ c.ret = a.map(x => num(x, c)); c.stop = true; } return i; }},
+  MSO:motionIns('Motion servo on', [], [], 'on'),
+  MSF:motionIns('Motion servo off', [], [], 'off'),
+  MAFR:motionIns('Motion axis fault reset', [], [], 'reset'),
+  MAH:motionIns('Motion axis home', [], [], 'home'),
+  MAJ:motionIns('Motion axis jog', ['Direction','Speed','Speed units','Accel rate','Accel units','Decel rate','Decel units','Profile','Accel jerk','Decel jerk','Jerk units','Merge','Merge speed','Lock position','Lock direction'],
+    ['0','10',EN.speed[0],'100',EN.accel[0],'100',EN.accel[0],EN.profile[0],'100','100',EN.jerk[2],EN.merge[0],EN.mspeed[0],'0',EN.lock[0]], 'jog'),
+  MAM:motionIns('Motion axis move', ['Move type','Position','Speed','Speed units','Accel rate','Accel units','Decel rate','Decel units','Profile','Accel jerk','Decel jerk','Jerk units','Merge','Merge speed','Lock position','Lock direction','Event distance','Calculated data'],
+    ['0','100','10',EN.speed[0],'100',EN.accel[0],'100',EN.accel[0],EN.profile[0],'100','100',EN.jerk[2],EN.merge[0],EN.mspeed[0],'0',EN.lock[0],'0','0'], 'move'),
+  MAS:motionIns('Motion axis stop', ['Stop type','Change decel','Decel rate','Decel units','Change decel jerk','Decel jerk','Jerk units'],
+    [EN.stop[0],EN.yesno[0],'100',EN.accel[0],EN.yesno[0],'100',EN.jerk[2]], 'stop'),
 };
 const labelsFor = n => { const d = I[n.name]; return !d ? n.args.map((_, i) => 'Operand ' + (i + 1)) : d.va ? d.va(n.args) : d.p; };
 /* array helpers for COP, FLL and SQO: "Arr[3]" starts at element 3, "Arr" at 0, a plain tag is one element */
@@ -587,6 +723,7 @@ const TOOLBAR = [
   ['Move / math', ['MOV','ADD','SUB','MUL','DIV','CPT','CLR']],
   ['File / sequencer', ['COP','FLL','MEQ','SQO']],
   ['Program control', ['JSR','SBR','RET']],
+  ['Motion', ['MSO','MSF','MAFR','MAH','MAJ','MAM','MAS']],
 ];
 
 /* ---------------- rung text (neutral text) ---------------- */
@@ -893,12 +1030,12 @@ function resolveAny(path){
   for (const prog of p.programs){ const x = resolve(path, prog); if (x) return x; }
   return null;
 }
-return {ATOMIC, BUILTIN, isAtomic, membersOf, instantiate, wrap, findTag, resolve, resolveAny, LIT, parseLit, num, bit, setb, setn, struct,
+return {ATOMIC, BUILTIN, AXIS_TYPES, NODATA, stepAxes, isAtomic, membersOf, instantiate, wrap, findTag, resolve, resolveAny, LIT, parseLit, num, bit, setb, setn, struct,
   evalExpr, I, TOOLBAR, labelsFor, parseRung, serialize, ensureAst, evalSeries, applyLiterals, walk, stAst, parseST, runRoutine, scanProject, rootsOf};
 
 }
 let P; // the project open in the editor (the offline copy)
-const {ATOMIC, BUILTIN, isAtomic, membersOf, instantiate, wrap, findTag, resolve, resolveAny, LIT, parseLit, num, bit, setb, setn, struct,
+const {ATOMIC, BUILTIN, AXIS_TYPES, NODATA, isAtomic, membersOf, instantiate, wrap, findTag, resolve, resolveAny, LIT, parseLit, num, bit, setb, setn, struct,
   evalExpr, I, TOOLBAR, labelsFor, parseRung, serialize, ensureAst, evalSeries, applyLiterals, walk, stAst} = CORE(() => P);
 
 /* ================= VIRTUAL CONTROLLER ================= */
@@ -971,6 +1108,7 @@ function PLCMAIN(port, CORE){
     if (proj && C.mode !== 'FAULT'){
       try {
         stepModels(dt, C.mode === 'RUN');
+        K.stepAxes(proj, dt, C.mode === 'RUN');
         if (C.mode === 'RUN'){
           const t0 = performance.now();
           K.scanProject(proj, dt, t0 + C.watchdog);
@@ -1291,6 +1429,8 @@ function drawIns(n, x, y, id, sel, prog, out){
         out.push(`<text class="op" x="${bx + bw - 8}" y="${ry}" text-anchor="end">${Math.floor(t[d.lv[i]])}</text>`);
       } else if (n.name === 'JSR' && i === 0){
         out.push(opText(a, prog, bx + bw - 8, ry, 'end', 18, true));
+      } else if (d && d.en && d.en[i]){
+        out.push(`<text class="op" x="${bx + bw - 8}" y="${ry}" text-anchor="end"><title>${esc(a)}</title>${esc(short(a, 18))}</text>`);
       } else if (n.name === 'CPT' && i === 1){
         out.push(opText(a, prog, bx + bw - 8, ry, 'end', 22));
       } else {
@@ -1462,7 +1602,7 @@ function selRung(){
 }
 function insertIns(name){
   const rt = curRoutine(); if (!rt || rt.type !== 'RLL') return;
-  const d = I[name]; const node = {t:'i', name, args:d.p.map(() => '?')};
+  const d = I[name]; const node = {t:'i', name, args:d.p.map((_, k) => d.def && d.def[k] != null ? d.def[k] : '?')};
   edit(() => {
     if (!rt.rungs.length) rt.rungs.push({comment:'', text:';'});
     let s = state.sel;
@@ -1699,6 +1839,12 @@ JSR(Calc, 1, Input, Result);</div>
       const labels = labelsFor(n);
       h += `<div class="sect"><h3>${esc(n.name)}<small>${d ? esc(d.d) : 'Not simulated'}</small></h3>`;
       labels.forEach((lab, i) => {
+        const opts = d && d.en && d.en[i];
+        if (opts){
+          const cur = n.args[i] == null ? '' : String(n.args[i]), known = opts.some(o => lc(o) === lc(cur));
+          h += `<div class="field"><label for="op-${i}">${esc(lab)}</label><select id="op-${i}" data-op="${i}">${known ? '' : `<option selected>${esc(cur)}</option>`}${opts.map(o => `<option${lc(o) === lc(cur) ? ' selected' : ''}>${esc(o)}</option>`).join('')}</select></div>`;
+          return;
+        }
         h += `<div class="field"><label for="op-${i}">${esc(lab)}</label><input id="op-${i}" data-op="${i}" list="${n.name === 'JSR' && i === 0 ? 'rtnames' : 'tagpaths'}" value="${esc(n.args[i] == null ? '?' : n.args[i])}" autocomplete="off" spellcheck="false"><div class="live" data-live="${i}">${liveHTML(n.args[i], prog, n.name === 'JSR' && i === 0)}</div></div>`;
       });
       if (d && d.va) h += `<div class="btns"><button data-act="addarg">Add parameter</button>${n.args.length > d.p.length ? '<button data-act="delarg">Remove last</button>' : ''}</div>`;
@@ -1778,7 +1924,7 @@ $('#insp').addEventListener('click', e => {
 });
 
 /* ---------------- tags view ---------------- */
-const TYPES = () => ['BOOL','SINT','INT','DINT','REAL','TIMER','COUNTER','CONTROL', ...P.udts.map(u => u.name)];
+const TYPES = () => ['BOOL','SINT','INT','DINT','REAL','TIMER','COUNTER','CONTROL', ...AXIS_TYPES, 'MOTION_INSTRUCTION', ...P.udts.map(u => u.name)];
 function renderTags(){
   const scope = state.view.scope;
   const prog = scope >= 0 ? P.programs[scope] : null;
@@ -2118,7 +2264,7 @@ function tagXML(t, withData){
   const atomic = isAtomic(t.type);
   const L = [`<Tag Name="${xa(t.name)}" TagType="Base" DataType="${xa(t.type)}"${t.dim ? ` Dimensions="${t.dim}"` : ''}${atomic ? ` Radix="${radix(t.type)}"` : ''} Constant="false" ExternalAccess="Read/Write">`];
   if (t.description) L.push(`<Description>\n${cd(t.description)}\n</Description>`);
-  const known = atomic || membersOf(t.type);
+  const known = (atomic || membersOf(t.type)) && !NODATA.has(t.type);
   if (withData && known){
     L.push('<Data Format="Decorated">');
     if (t.dim){
@@ -2249,9 +2395,9 @@ function showAbout(){
     <p><b>Three parts on one page.</b> The editor holds the offline project. The virtual controller runs in a background worker, owns the tag values and scans the logic every 10 ms. The HMI and the editor both go online to it, the same way programming software talks to a real controller. Open the page in a second tab and it connects to the same controller; add <span class="mono">#hmi</span> to the link to open straight into the operator screen.</p>
     <p><b>Works with other tools</b> through the L5X XML format for ladder and structured text routines, and through the optional bridge app for Modbus TCP and OPC UA.</p>
     <ul>
-      <li>Instructions: XIC, XIO, ONS, OTE, OTL, OTU, OSR, OSF, TON, TOF, RTO, CTU, CTD, RES, EQU, NEQ, GRT, GEQ, LES, LEQ, LIM, MEQ, MOV, ADD, SUB, MUL, DIV, MOD, CPT, CLR, COP, FLL, SQO, JSR, SBR, RET, NOP, AFI.</li>
+      <li>Instructions: XIC, XIO, ONS, OTE, OTL, OTU, OSR, OSF, TON, TOF, RTO, CTU, CTD, RES, EQU, NEQ, GRT, GEQ, LES, LEQ, LIM, MEQ, MOV, ADD, SUB, MUL, DIV, MOD, CPT, CLR, COP, FLL, SQO, JSR, SBR, RET, NOP, AFI, and motion: MSO, MSF, MAFR, MAH, MAJ, MAM, MAS on a simulated servo axis.</li>
       <li>Structured text: assignments, IF, CASE, FOR, WHILE, REPEAT, JSR and math functions.</li>
-      <li>Tags: BOOL, SINT, INT, DINT, REAL, TIMER, COUNTER, CONTROL, arrays, aliases and your own data types.</li>
+      <li>Tags: BOOL, SINT, INT, DINT, REAL, TIMER, COUNTER, CONTROL, AXIS_CIP_DRIVE, AXIS_VIRTUAL, MOTION_INSTRUCTION, arrays, aliases and your own data types.</li>
       <li>Not covered yet: function block and SFC routines, Add-On Instructions, and downloading to a real controller.</li>
     </ul>
     <p>License: MIT. The whole app is one HTML file, so you can open it offline or host it anywhere.</p>
@@ -2368,7 +2514,7 @@ function countErrors(){
     for (const r of rt.rungs){
       ensureAst(r); if (!r.ast){ rungs++; continue; }
       walk(r.ast, n => { n.args.forEach((a, i) => {
-        if (!a || a === '?' || LIT.test(a) || (n.name === 'CPT' && i === 1)) return;
+        if (!a || a === '?' || LIT.test(a) || (n.name === 'CPT' && i === 1) || (I[n.name] && I[n.name].en && I[n.name].en[i])) return;
         if (n.name === 'JSR' && i === 0){ if (!prog.routines.some(x => lc(x.name) === lc(a))) ops++; return; }
         if (!resolve(a, prog)) ops++; }); });
     }
@@ -2469,6 +2615,7 @@ const HT = {
   entry: {n:'Numeric entry', g:'Analog', w:5, h:3, f:['tag','label','min','max'], d:{label:'Setpoint', min:0, max:100}},
   bar:   {n:'Bar graph', g:'Analog', w:2, h:6, f:['tag','label','min','max','color'], d:{label:'Level', min:0, max:100, color:'blue'}},
   tank:  {n:'Tank', g:'Analog', w:5, h:7, f:['tag','label','min','max','color'], d:{label:'Tank', min:0, max:100, color:'blue'}},
+  axis:  {n:'Axis position', g:'Analog', w:14, h:5, f:['tag','label','min','max','dec','units'], d:{label:'Axis', min:0, max:100, dec:2, units:'mm'}},
   trend: {n:'Trend', g:'Displays', w:18, h:8, f:['pens','span','min','max'], d:{pens:['','','',''], span:30, min:0, max:100}},
   alarms:{n:'Alarm list', g:'Displays', w:24, h:6, f:[], d:{}},
   model: {n:'Process view', g:'Displays', w:16, h:5, f:['model'], d:{model:0}},
@@ -2518,7 +2665,7 @@ function renderHmiToolbar(tb){
 function hIcon(t){
   const i = {mom:'<rect x="2" y="4" width="12" height="8" rx="2"/>', mnt:'<rect x="2" y="4" width="12" height="8" rx="2"/><path d="M5 8h6"/>', nav:'<path d="M3 8h9M9 5l3 3-3 3"/>',
     lamp:'<circle cx="8" cy="8" r="5"/>', multi:'<rect x="2" y="5" width="12" height="6" rx="3"/>', num:'<path d="M3 5h3v6M9 5h4v3H9v3h4"/>', text:'<path d="M3 4h10M8 4v9"/>',
-    entry:'<rect x="2" y="4" width="12" height="8" rx="1"/><path d="M5 7v2"/>', bar:'<rect x="6" y="2" width="4" height="12"/><path d="M6 9h4"/>', tank:'<path d="M3 3v9a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V3"/><path d="M3 9h10"/>',
+    entry:'<rect x="2" y="4" width="12" height="8" rx="1"/><path d="M5 7v2"/>', bar:'<rect x="6" y="2" width="4" height="12"/><path d="M6 9h4"/>', tank:'<path d="M3 3v9a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V3"/><path d="M3 9h10"/>', axis:'<path d="M1 11h14"/><rect x="6" y="5" width="4" height="4"/>',
     trend:'<path d="M2 12l4-5 3 3 5-7"/>', alarms:'<path d="M8 2l6 11H2z"/><path d="M8 6v3"/>', model:'<rect x="1" y="7" width="14" height="4" rx="2"/><rect x="4" y="3" width="4" height="4"/>'}[t];
   return `<svg class="hico" viewBox="0 0 16 16" aria-hidden="true">${i}</svg>`;
 }
@@ -2557,7 +2704,7 @@ function renderHmi(){
   view.innerHTML = h;
 }
 function hInner(o){
-  const v = hval(o.tag), on = !!v, col = HCOL.includes(o.color) ? o.color : 'green', bad = o.tag && v == null && HT[o.t].f.includes('tag');
+  const v = hval(o.tag), on = !!v, col = HCOL.includes(o.color) ? o.color : 'green', bad = o.tag && v == null && HT[o.t].f.includes('tag') && o.t !== 'axis';
   const lbl = esc(o.label || '');
   switch (o.t){
     case 'mom': case 'mnt': return `<div class="hbtn c-${col}${on ? ' on' : ''}${bad ? ' bad' : ''}">${lbl}</div>`;
@@ -2572,6 +2719,15 @@ function hInner(o){
       const lo = +o.min || 0, hi = +o.max || 100, pct = v == null ? 0 : Math.max(0, Math.min(100, (v - lo) / ((hi - lo) || 1) * 100));
       if (o.t === 'bar') return `<div class="hbar${bad ? ' bad' : ''}"><div class="track"><div class="fill c-${col}" style="height:${pct}%"></div></div><span class="hl">${lbl}</span><b>${fmtN(v, 0)}</b></div>`;
       return `<div class="htank${bad ? ' bad' : ''}"><span class="hl">${lbl}</span><div class="vessel"><div class="fill c-${col}" style="height:${pct}%"></div><b>${fmtN(v, 1)}</b></div></div>`;
+    }
+    case 'axis': {
+      const r = o.tag && resolveAny(o.tag), ax = r && !r.dim ? r.get() : null, ok = !!(ax && typeof ax === 'object' && 'ActualPosition' in ax);
+      const lo = +o.min || 0, hi = +o.max === lo ? lo + 1 : +o.max, pos = ok ? ax.ActualPosition : null;
+      const pct = pos == null ? 0 : Math.max(0, Math.min(100, (pos - lo) / (hi - lo) * 100));
+      const chip = (txt, b, c) => `<span class="axc${b ? ' on c-' + c : ''}">${txt}</span>`;
+      return `<div class="haxis${o.tag && !ok ? ' bad' : ''}"><div class="axhd"><span class="hl">${lbl}</span><b>${fmtN(pos, o.dec)}<i>${esc(o.units || '')}</i></b></div>
+        <div class="rail"><div class="car" style="left:${pct}%"></div><span>${fmtN(lo, 0)}</span><span>${fmtN(hi, 0)}</span></div>
+        <div class="axst">${chip('Servo on', ok && ax.ServoActionStatus, 'green')}${chip('Homed', ok && ax.AxisHomedStatus, 'blue')}${chip('Moving', ok && (ax.MoveStatus || ax.JogStatus), 'amber')}${chip('Fault', ok && ax.AxisFault, 'red')}<em>${fmtN(ok ? ax.ActualVelocity : null, o.dec)} ${esc(o.units || '')}/s</em></div></div>`;
     }
     case 'trend': return trendSVG(o, o.w * CELL - 6, o.h * CELL - 6);
     case 'alarms': return ALARMS.html(!state.hmiRun);
@@ -2707,7 +2863,9 @@ function renderHmiInspector(box){
   let h = `<div class="sect"><h3>${esc(d.n)}</h3>`;
   for (const f of d.f){
     const id = 'hp-' + f, val = o[f] == null ? '' : o[f];
-    if (f === 'tag') h += `<div class="field"><label for="${id}">Tag</label><input id="${id}" data-hp="tag" list="hmitags" class="mono" value="${esc(val)}" spellcheck="false" autocomplete="off"><div class="live">${o.tag ? (hval(o.tag) == null ? '<span class="errmsg">No value tag named ' + esc(o.tag) + '</span>' : '<span>Value</span><b>' + esc(fmtVal(hval(o.tag))) + '</b>') : '<span>Not linked yet</span>'}</div></div>`;
+    if (f === 'tag' && o.t === 'axis'){ const r = o.tag && resolveAny(o.tag), ok = r && !r.dim && AXIS_TYPES.includes(r.type);
+      h += `<div class="field"><label for="${id}">Axis tag</label><input id="${id}" data-hp="tag" list="hmitags" class="mono" value="${esc(val)}" spellcheck="false" autocomplete="off"><div class="live">${!o.tag ? '<span>Not linked yet</span>' : ok ? '<span>Axis found</span>' : '<span class="errmsg">No axis tag named ' + esc(o.tag) + '</span>'}</div></div>`; }
+    else if (f === 'tag') h += `<div class="field"><label for="${id}">Tag</label><input id="${id}" data-hp="tag" list="hmitags" class="mono" value="${esc(val)}" spellcheck="false" autocomplete="off"><div class="live">${o.tag ? (hval(o.tag) == null ? '<span class="errmsg">No value tag named ' + esc(o.tag) + '</span>' : '<span>Value</span><b>' + esc(fmtVal(hval(o.tag))) + '</b>') : '<span>Not linked yet</span>'}</div></div>`;
     else if (f === 'color') h += `<div class="field"><label for="${id}">Color</label><select id="${id}" data-hp="color">${HCOL.map(c => `<option${c === val ? ' selected' : ''}>${c}</option>`).join('')}</select></div>`;
     else if (f === 'size') h += `<div class="field"><label for="${id}">Size</label><select id="${id}" data-hp="size">${[['s','Small'],['m','Medium'],['l','Large']].map(([k, n]) => `<option value="${k}"${k === val ? ' selected' : ''}>${n}</option>`).join('')}</select></div>`;
     else if (f === 'states') h += `<div class="field"><label for="${id}">States, one per line: value=text:color</label><textarea id="${id}" data-hp="states" rows="4">${esc(val)}</textarea></div>`;
@@ -2915,6 +3073,11 @@ function addDemo(p){
   add('Tank_Level', 'REAL', 'Tank level, %'); add('Tank_High', 'BOOL', 'High level switch'); add('Tank_Low', 'BOOL', 'Low level switch');
   add('Level_SP', 'REAL', 'Drain once the level reaches this, %'); add('Tank_State', 'DINT', '0 idle, 1 filling, 2 draining');
   add('Slot1_DI', 'DINT', 'DI16 card in slot 1'); add('Slot2_DO', 'DINT', 'DO16 card in slot 2'); add('Slot3_AI', 'REAL', 'AI4 card in slot 3', 4);
+  add('Axis1', 'AXIS_CIP_DRIVE', 'Simulated servo axis, mm');
+  for (const [n, d] of [['MSO','servo on'],['MSF','servo off'],['MAH','home'],['MAJF','jog forward'],['MAJR','jog reverse'],['MASJ','stop jog'],['MAM','move'],['MAS','stop']]) add('Axis1_' + n, 'MOTION_INSTRUCTION', 'Axis1 ' + d);
+  for (const [n, d] of [['Servo_On_PB','Servo on'],['Servo_Off_PB','Servo off'],['Home_PB','Home axis'],['Jog_Fwd_PB','Jog forward (hold)'],['Jog_Rev_PB','Jog reverse (hold)'],['Move_PB','Move to Move_Pos'],['Axis_Stop_PB','Stop the axis']]) add(n, 'BOOL', d);
+  add('Move_Pos', 'REAL', 'Move target, mm'); add('Move_Speed', 'REAL', 'Move speed, mm/s'); add('Jog_Speed', 'REAL', 'Jog speed, mm/s');
+  for (const [n, v] of [['Move_Pos', 250], ['Move_Speed', 80], ['Jog_Speed', 25]]){ const t = p.tags.find(x => x.name === n); if (t && !t.value) t.value = v; }
   const sp = p.tags.find(t => t.name === 'Level_SP'); if (sp && !sp.value) sp.value = 80;
   const at = p.tags.find(t => t.name === 'Auto_Mode'); if (at) at.value = 1;
   if (!prog.routines.some(r => r.name === 'Demo_Timers')) prog.routines.push({name:'Demo_Timers', type:'RLL', rungs:[
@@ -2932,6 +3095,18 @@ function addDemo(p){
     {comment:'', text:'XIC(PE_Exit)CTU(Parts_Done,9999,0);'},
     {comment:'Input 0 on the slot 1 card drives output 0 on slot 2. Try it on the I/O page.', text:'XIC(Slot1_DI.0)OTE(Slot2_DO.0);'},
     {comment:'Call the structured text tank routine every scan.', text:'JSR(Tank_Control,0);'});
+  if (dt && !dt.rungs.some(r => /Axis_Motion/.test(r.text))) dt.rungs.push({comment:'Call the servo axis routine every scan.', text:'JSR(Axis_Motion,0);'});
+  const J = 'Units per sec,200,Units per sec2,200,Units per sec2,Trapezoidal,100,100,% of Time,Disabled,Programmed,0,None';
+  if (!prog.routines.some(r => r.name === 'Axis_Motion')) prog.routines.push({name:'Axis_Motion', type:'RLL', rungs:[
+    {comment:'Servo axis demo. Motion instructions start on a false-to-true rung transition. Turn the servo on, home, then jog or move. Watch it on the Axis HMI screen.', text:'XIC(Servo_On_PB)MSO(Axis1,Axis1_MSO);'},
+    {comment:'', text:'XIC(Servo_Off_PB)MSF(Axis1,Axis1_MSF);'},
+    {comment:'Immediate homing: the present position becomes HomePosition.', text:'XIC(Home_PB)MAH(Axis1,Axis1_MAH);'},
+    {comment:'Jog while the button is held.', text:'XIC(Jog_Fwd_PB)MAJ(Axis1,Axis1_MAJF,0,Jog_Speed,' + J + ');'},
+    {comment:'', text:'XIC(Jog_Rev_PB)MAJ(Axis1,Axis1_MAJR,1,Jog_Speed,' + J + ');'},
+    {comment:'Releasing both jog buttons stops the jog.', text:'XIO(Jog_Fwd_PB)XIO(Jog_Rev_PB)XIC(Axis1.JogStatus)MAS(Axis1,Axis1_MASJ,Jog,No,200,Units per sec2,No,100,% of Time);'},
+    {comment:'Absolute move to Move_Pos. Axis1_MAM.PC turns on when it arrives.', text:'XIC(Move_PB)XIC(Axis1.AxisHomedStatus)MAM(Axis1,Axis1_MAM,0,Move_Pos,Move_Speed,Units per sec,400,Units per sec2,400,Units per sec2,Trapezoidal,100,100,% of Time,Disabled,Programmed,0,None,0,0);'},
+    {comment:'', text:'XIC(Axis_Stop_PB)MAS(Axis1,Axis1_MAS,All,Yes,1000,Units per sec2,No,100,% of Time);'},
+  ]});
   if (!prog.routines.some(r => r.name === 'Tank_Control')) prog.routines.push({name:'Tank_Control', type:'ST', rungs:[], st:
 `(* Tank control in structured text, called by JSR from Demo_Timers.
    In auto, fill until the level reaches Level_SP, then drain down to the low switch, and repeat. *)
@@ -2967,7 +3142,7 @@ END_IF;`});
       O('lamp', 0, 5, 4, 3, {tag:'Motor_Run', label:'Motor', color:'green'}), O('lamp', 5, 5, 4, 3, {tag:'Halfway_Lamp', label:'Halfway', color:'blue'}), O('lamp', 10, 5, 4, 3, {tag:'Batch_Done', label:'Batch done', color:'amber'}),
       O('num', 15, 2, 6, 2, {tag:'Run_Timer.ACC', label:'Cycle timer', units:'ms'}), O('num', 15, 5, 6, 2, {tag:'Cycle_Count.ACC', label:'Cycles'}), O('num', 15, 8, 6, 2, {tag:'Parts_Done.ACC', label:'Parts out'}),
       O('bar', 22, 2, 2, 8, {tag:'Run_Timer.ACC', label:'Timer', min:0, max:5000, color:'green'}),
-      O('nav', 25, 2, 7, 2, {label:'Tank screen', target:1}),
+      O('nav', 25, 2, 7, 2, {label:'Tank screen', target:1}), O('nav', 25, 5, 7, 2, {label:'Axis screen', target:2}),
       O('model', 0, 10, 24, 5, {model:0}),
       O('trend', 0, 16, 24, 8, {pens:['Run_Timer.ACC','','',''], span:20, min:0, max:5000}),
       O('alarms', 0, 25, 32, 6),
@@ -2981,10 +3156,21 @@ END_IF;`});
       O('entry', 18, 1, 6, 3, {tag:'Level_SP', label:'Drain at %', min:10, max:95}),
       O('num', 18, 5, 6, 2, {tag:'Tank_Level', label:'Level', dec:1, units:'%'}),
       O('multi', 18, 8, 6, 2, {tag:'Tank_State', label:'State', states:'0=Idle:grey\n1=Filling:green\n2=Draining:blue'}),
-      O('nav', 25, 2, 7, 2, {label:'Line overview', target:0}),
+      O('nav', 25, 2, 7, 2, {label:'Line overview', target:0}), O('nav', 25, 5, 7, 2, {label:'Axis screen', target:2}),
       O('trend', 0, 14, 24, 8, {pens:['Tank_Level','Level_SP','',''], span:60, min:0, max:100}),
       O('alarms', 0, 23, 32, 6),
     ]}];
+  if (!p.hmi.screens.some(sc => sc.name === 'Axis')) p.hmi.screens.push({name:'Axis', objs:[
+    O('text', 0, 0, 16, 2, {label:'Axis 1 · servo demo', size:'l'}),
+    O('mom', 0, 2, 5, 2, {tag:'Servo_On_PB', label:'Servo on', color:'green'}), O('mom', 6, 2, 5, 2, {tag:'Servo_Off_PB', label:'Servo off', color:'grey'}),
+    O('mom', 12, 2, 5, 2, {tag:'Home_PB', label:'Home', color:'blue'}), O('mom', 18, 2, 5, 2, {tag:'Axis_Stop_PB', label:'Stop', color:'red'}),
+    O('mom', 0, 5, 5, 2, {tag:'Jog_Rev_PB', label:'◀ Jog', color:'amber'}), O('mom', 6, 5, 5, 2, {tag:'Jog_Fwd_PB', label:'Jog ▶', color:'amber'}),
+    O('mom', 12, 5, 5, 2, {tag:'Move_PB', label:'Move', color:'green'}),
+    O('entry', 18, 5, 5, 3, {tag:'Move_Pos', label:'Target mm', min:-1000, max:1000}), O('entry', 24, 5, 5, 3, {tag:'Move_Speed', label:'Speed mm/s', min:1, max:500}),
+    O('axis', 0, 9, 29, 5, {tag:'Axis1', label:'Axis1 position', min:-100, max:400, dec:2, units:'mm'}),
+    O('trend', 0, 15, 29, 8, {pens:['Axis1.ActualPosition','Axis1.ActualVelocity','',''], span:30, min:-100, max:400}),
+    O('nav', 25, 2, 7, 2, {label:'Line overview', target:0}),
+  ]});
   if (!p.hmi.alarms.length) p.hmi.alarms.push(
     {id:newId(), tag:'Tank_High', cond:'on', value:0, msg:'Tank 1 high level switch', sev:'High'},
     {id:newId(), tag:'Tank_Low', cond:'on', value:0, msg:'Tank 1 low level switch', sev:'Medium'},
