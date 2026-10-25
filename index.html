@@ -2753,9 +2753,9 @@ function aoiXML(a, use){
   const desc = d => d ? [`<Description>`, cd(d), `</Description>`] : [];
   const L = [`<AddOnInstructionDefinition Use="${use}" Name="${xa(a.name)}" Revision="${xa(a.revision || '1.0')}" ExecutePrescan="false" ExecutePostscan="false" ExecuteEnableInFalse="false" CreatedDate="${isoNow()}" CreatedBy="OpenRung" EditedDate="${isoNow()}" EditedBy="OpenRung" SoftwareRevision="v${xa(P.rev || '32.00')}">`];
   L.push(...desc(a.description), '<Parameters>');
-  const sys = (name, usage, def, d) => [`<Parameter Name="${name}" TagType="Base" DataType="BOOL" Usage="${usage}" Radix="Decimal" Required="false" Visible="false" ExternalAccess="Read Only">`, ...desc(d),
-    '<DefaultData Format="L5K">', cd(def), '</DefaultData>', '<DefaultData Format="Decorated">', `<DataValue DataType="BOOL" Radix="Decimal" Value="${def}"/>`, '</DefaultData>', '</Parameter>'];
-  L.push(...sys('EnableIn', 'Input', '1', 'Enable Input - System Defined Parameter'), ...sys('EnableOut', 'Output', '0', 'Enable Output - System Defined Parameter'));
+  /* Studio 5000 writes the system parameters with no DefaultData */
+  const sys = (name, usage, d) => [`<Parameter Name="${name}" TagType="Base" DataType="BOOL" Usage="${usage}" Radix="Decimal" Required="false" Visible="false" ExternalAccess="Read Only">`, ...desc(d), '</Parameter>'];
+  L.push(...sys('EnableIn', 'Input', 'Enable Input - System Defined Parameter'), ...sys('EnableOut', 'Output', 'Enable Output - System Defined Parameter'));
   for (const t of a.tags.filter(x => x.usage !== 'Local')){
     const io = t.usage === 'InOut', rx = isAtomic(t.type) ? ` Radix="${radix(t.type)}"` : '';
     const head = `<Parameter Name="${xa(t.name)}" TagType="Base" DataType="${xa(t.type)}"${t.dim ? ` Dimensions="${t.dim}"` : ''} Usage="${t.usage}"${rx} Required="${io || t.required ? 'true' : 'false'}" Visible="${t.visible === false ? 'false' : 'true'}"`;
