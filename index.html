@@ -373,6 +373,7 @@ button:disabled{opacity:.45;cursor:default}
 <datalist id="tagpaths"></datalist><datalist id="rtnames"></datalist><datalist id="hmitags"></datalist>
 
 <script type="text/plain" id="sampleL5X"></script>
+<script type="application/json" id="startProject"></script>
 <script>
 "use strict";
 /* OpenRung: a clean-room ladder logic editor and simulator.
@@ -408,14 +409,97 @@ const isAtomic = t => Object.prototype.hasOwnProperty.call(ATOMIC, t);
 function membersOf(type){
   if (BUILTIN[type]) return BUILTIN[type].map(([name,t,def]) => ({name, type:t, dim:0, def}));
   const u = getP().udts.find(u => lc(u.name) === lc(type));
-  return u ? u.members : null;
+  if (u) return u.members;
+  const a = aoiOf(type);
+  return a ? aoiMembers(a) : null;
 }
 function instantiate(type, dim){
   if (dim > 0) return Array.from({length:dim}, () => instantiate(type, 0));
   if (isAtomic(type)) return 0;
   const o = {};
-  for (const m of membersOf(type) || []) o[m.name] = m.def != null ? m.def : instantiate(m.type, m.dim || 0);
+  for (const m of membersOf(type) || []) o[m.name] = m.def == null ? instantiate(m.type, m.dim || 0) : typeof m.def === 'object' ? JSON.parse(JSON.stringify(m.def)) : m.def;
   return o;
+}
+
+/* ---------------- Add-On Instructions ----------------
+   An AOI is stored like a small program: tags (parameters and local tags, each with a usage and a
+   default value) and routines (Logic runs on each call). Its name is also a data type: the backing
+   tag holds EnableIn, EnableOut, the Input and Output parameters and the local tags. A call in ladder
+   is Name(BackingTag, then each required parameter in order), the same as L5X neutral text. */
+const AOI_USAGE = ['Input','Output','InOut','Local'];
+function aoiOf(name){
+  const l = getP() && getP().aois; if (!l || !name) return null;
+  const n = lc(name); return l.find(a => lc(a.name) === n) || null;
+}
+/* the parameters a call lists after the backing tag: required Input/Output ones, and every InOut */
+const aoiArgs = a => a.tags.filter(t => t.usage === 'InOut' || (t.usage !== 'Local' && t.required));
+/* cached on the definition; "_" keys never reach saved files, and the editor clears it after each change */
+function aoiMembers(a){
+  if (!a._m) a._m = [{name:'EnableIn', type:'BOOL', dim:0, def:1}, {name:'EnableOut', type:'BOOL', dim:0},
+    ...a.tags.filter(t => t.usage !== 'InOut').map(t => ({name:t.name, type:t.type, dim:t.dim || 0, def:t.value, description:t.description}))];
+  return a._m;
+}
+/* the tag scope the logic runs in: parameters and locals are views onto the backing tag, InOut
+   parameters onto the caller's tags. Controller tags are out of reach, as in Logix. */
+function aoiScope(a, inst, refs, ctx){
+  const view = (name, type, dim, get, set) => { const t = {name, type, dim}; Object.defineProperty(t, 'value', {get, set, enumerable:true}); return t; };
+  const own = (name, type, dim) => view(name, type, dim, () => inst[name], v => { inst[name] = v; });
+  const tags = [own('EnableIn', 'BOOL', 0), own('EnableOut', 'BOOL', 0)];
+  for (const t of a.tags){
+    if (t.usage !== 'InOut'){ tags.push(own(t.name, t.type, t.dim || 0)); continue; }
+    const r = refs && refs[t.name];
+    tags.push(r ? view(t.name, r.type, r.dim, () => r.get(), v => r.set(v)) : {name:t.name, type:t.type, dim:t.dim || 0, value:instantiate(t.type, t.dim || 0)});
+  }
+  return {aoi:true, name:a.name, def:a, ctx:ctx || '', tags, routines:a.routines};
+}
+const aoiLogic = a => a.routines.find(r => lc(r.name) === 'logic') || a.routines[0];
+function callAoi(a, args, i, c){
+  const r = resolve(args[0], c.prog);
+  if (!r || r.dim || lc(r.type) !== lc(a.name)){
+    if (c.dry) return false;
+    throw new Error(a.name + ': ' + (args[0] || '?') + ' is not a ' + a.name + ' tag');
+  }
+  const inst = r.get();
+  if (c.dry) return !!(i && inst.EnableOut);
+  for (const m of aoiMembers(a)) if (inst[m.name] === undefined) inst[m.name] = m.def != null ? JSON.parse(JSON.stringify(m.def)) : instantiate(m.type, m.dim);
+  const req = aoiArgs(a), refs = {};
+  inst.EnableIn = i ? 1 : 0;
+  req.forEach((t, k) => {
+    const arg = args[k + 1];
+    if (t.usage === 'Input'){ if (isAtomic(t.type) && !t.dim) inst[t.name] = wrap(t.type, num(arg, c)); }
+    else if (t.usage === 'InOut'){
+      const x = resolve(arg, c.prog);
+      if (!x) throw new Error(a.name + ': InOut parameter ' + t.name + ' needs a tag, not ' + (arg || '?'));
+      refs[t.name] = x;
+    }
+  });
+  if (i){
+    inst.EnableOut = 1;
+    const logic = aoiLogic(a);
+    if (logic){ const cc = {prog:aoiScope(a, inst, refs), dt:c.dt, deadline:c.deadline, loops:c.loops, depth:c.depth}; runRoutine(logic, cc); c.loops = cc.loops; }
+  } else inst.EnableOut = 0;
+  req.forEach((t, k) => { if (t.usage === 'Output' && isAtomic(t.type) && !t.dim) setn(args[k + 1], inst[t.name], c); });
+  return !!inst.EnableOut;
+}
+/* every backing tag of an AOI type, for seeding timer presets */
+function aoiInstances(a){
+  const p = getP(), out = [];
+  for (const t of [...p.tags, ...p.programs.flatMap(x => x.tags)]) if (!t.alias && lc(t.type) === lc(a.name)) t.dim ? out.push(...t.value) : out.push(t.value);
+  return out;
+}
+/* instruction lookup: built-ins first, then the project's AOIs, which act like box instructions */
+const AOI_DEF = new WeakMap();
+function defOf(name){
+  if (Object.prototype.hasOwnProperty.call(I, name)) return I[name];
+  const a = aoiOf(name); if (!a) return null;
+  const req = aoiArgs(a), sig = a.name + '|' + (a.description || '') + '|' + req.map(t => t.name + ':' + t.usage).join(',');
+  let e = AOI_DEF.get(a);
+  if (!e || e.sig !== sig){
+    e = {sig, def:{k:'b', g:'AOI', aoi:a, d:a.description || 'Add-On Instruction', p:[a.name, ...req.map(t => t.name)],
+      dst:[false, ...req.map(t => t.usage !== 'Input')], x:(args, i, c) => callAoi(a, args, i, c)}};
+    AOI_DEF.set(a, e);
+  }
+  return e.def;
 }
 function wrap(type, v){
   v = Number(v); if (!isFinite(v)) v = 0;
@@ -432,7 +516,7 @@ function wrap(type, v){
 /* ---------------- operand resolution ---------------- */
 function findTag(name, prog){
   const n = lc(name);
-  return (prog && prog.tags.find(t => lc(t.name) === n)) || getP().tags.find(t => lc(t.name) === n);
+  return (prog && prog.tags.find(t => lc(t.name) === n)) || (prog && prog.aoi ? null : getP().tags.find(t => lc(t.name) === n));
 }
 function resolve(path, prog, depth){
   path = String(path || '').trim();
@@ -704,7 +788,7 @@ const I = {
   MAS:motionIns('Motion axis stop', ['Stop type','Change decel','Decel rate','Decel units','Change decel jerk','Decel jerk','Jerk units'],
     [EN.stop[0],EN.yesno[0],'100',EN.accel[0],EN.yesno[0],'100',EN.jerk[2]], 'stop'),
 };
-const labelsFor = n => { const d = I[n.name]; return !d ? n.args.map((_, i) => 'Operand ' + (i + 1)) : d.va ? d.va(n.args) : d.p; };
+const labelsFor = n => { const d = defOf(n.name); return !d ? n.args.map((_, i) => 'Operand ' + (i + 1)) : d.va ? d.va(n.args) : d.p; };
 /* array helpers for COP, FLL and SQO: "Arr[3]" starts at element 3, "Arr" at 0, a plain tag is one element */
 function arrAt(path, c){
   path = String(path || '').trim();
@@ -771,7 +855,8 @@ function parseRung(text){
       if (s[i] !== ')') fail('Missing ) for ' + m[0]);
       i++;
       if (cur.trim() !== '' || args.length) args.push(cur.trim());
-      out.push({t:'i', name:m[0].toUpperCase(), args});
+      const up = m[0].toUpperCase(), ao = !I[up] && aoiOf(m[0]);
+      out.push({t:'i', name:ao ? ao.name : I[up] ? up : m[0], args});
     }
   }
   const r = series(); ws();
@@ -794,7 +879,7 @@ function evalSeries(ser, p, c){
       for (const leg of n.legs){ const r = evalSeries(leg, p, c); o = o || r; }
       p = o;
     } else {
-      const d = I[n.name];
+      const d = defOf(n.name);
       p = d ? !!d.x(n.args, p, c) : p;
     }
     n._out = p;
@@ -805,7 +890,7 @@ function evalSeries(ser, p, c){
 
 /* timer/counter literals in rung text seed the tag's PRE/ACC */
 function applyLiterals(){
-  for (const prog of getP().programs) for (const rt of prog.routines) for (const rung of rt.rungs){
+  const seed = (rt, prog) => { for (const rung of rt.rungs || []){
     ensureAst(rung); if (!rung.ast) continue;
     walk(rung.ast, n => {
       const d = I[n.name]; if (!d || !d.lv) return;
@@ -813,6 +898,12 @@ function applyLiterals(){
       if (!t) return;
       for (const [ix, f] of Object.entries(d.lv)) if (LIT.test(n.args[ix] || '')) t[f] = wrap('DINT', parseLit(n.args[ix]));
     });
+  } };
+  for (const prog of getP().programs) for (const rt of prog.routines) seed(rt, prog);
+  /* in an AOI the literal sets the local tag's default and every existing instance */
+  for (const a of getP().aois || []){
+    for (const rt of a.routines) seed(rt, a);
+    for (const inst of aoiInstances(a)) for (const rt of a.routines) seed(rt, aoiScope(a, inst));
   }
 }
 function walk(ser, f){ for (const n of ser){ if (n.t === 'br') n.legs.forEach(l => walk(l, f)); else f(n); } }
@@ -1043,12 +1134,12 @@ function resolveAny(path){
   return null;
 }
 return {ATOMIC, BUILTIN, AXIS_TYPES, NODATA, stepAxes, isAtomic, membersOf, instantiate, wrap, findTag, resolve, resolveAny, LIT, parseLit, num, bit, setb, setn, struct,
-  evalExpr, I, TOOLBAR, labelsFor, parseRung, serialize, ensureAst, evalSeries, applyLiterals, walk, stAst, parseST, runRoutine, scanProject, rootsOf};
+  AOI_USAGE, aoiOf, aoiArgs, aoiScope, aoiLogic, defOf, evalExpr, I, TOOLBAR, labelsFor, parseRung, serialize, ensureAst, evalSeries, applyLiterals, walk, stAst, parseST, runRoutine, scanProject, rootsOf};
 
 }
 let P; // the project open in the editor (the offline copy)
 const {ATOMIC, BUILTIN, AXIS_TYPES, NODATA, isAtomic, membersOf, instantiate, wrap, findTag, resolve, resolveAny, LIT, parseLit, num, bit, setb, setn, struct,
-  evalExpr, I, TOOLBAR, labelsFor, parseRung, serialize, ensureAst, evalSeries, applyLiterals, walk, stAst} = CORE(() => P);
+  AOI_USAGE, aoiOf, aoiArgs, aoiScope, aoiLogic, defOf, evalExpr, I, TOOLBAR, labelsFor, parseRung, serialize, ensureAst, evalSeries, applyLiterals, walk, stAst} = CORE(() => P);
 
 /* ================= VIRTUAL CONTROLLER ================= */
 /* Runs inside a Web Worker (or in the page when workers are blocked). Owns the tag database and the scan.
@@ -1274,7 +1365,7 @@ function onValues(m){
   applyValues(m); MODELS = m.models || [];
   hmiTick(); refreshLive();
 }
-const scoped = (path, prog) => prog ? `Program:${prog.name}.${path}` : path;
+const scoped = (path, prog) => prog && prog.aoi ? (prog.ctx ? `${prog.ctx}.${path}` : path) : prog ? `Program:${prog.name}.${path}` : path;
 function writeTag(path, value, toggle){
   if (CONN.online) toPLC({op:'write', path, value, toggle:!!toggle});
   const r = resolveAny(path);
@@ -1288,7 +1379,7 @@ let sigMemo = null;
 function projSig(){
   if (sigMemo) return sigMemo;
   const ts = t => [t.name, t.type, t.dim || 0, t.alias || ''];
-  return sigMemo = fnv(JSON.stringify({u:P.udts, t:P.tags.map(ts), io:P.io,
+  return sigMemo = fnv(JSON.stringify({u:P.udts, a:P.aois.map(a => [a.name, a.tags.map(t => [t.name, t.usage, t.type, t.dim || 0, !!t.required]), a.routines.map(r => [r.name, r.type, r.type === 'ST' ? r.st : (r.rungs || []).map(g => g.text)])]), t:P.tags.map(ts), io:P.io,
     p:P.programs.map(pr => ({n:pr.name, m:pr.main || '', t:pr.tags.map(ts), r:pr.routines.map(r => [r.name, r.type, r.type === 'ST' ? r.st : (r.rungs || []).map(g => g.text)])}))}));
 }
 function setOnline(on){
@@ -1337,7 +1428,7 @@ function sizeNode(n){
     for (const l of n.legs){ const s = sizeSeries(l); l._w = s.w; l._h = s.h; w = Math.max(w, s.w); h += s.h; }
     n._w = w + 2 * G.bp; n._h = h; return;
   }
-  const d = I[n.name];
+  const d = defOf(n.name);
   if (!d || d.k === 'b'){
     const rows = labelsFor(n).length;
     n._w = G.boxW; n._h = Math.max(G.rowH, 40 + rows * G.argH + 16);
@@ -1397,7 +1488,7 @@ function fmtVal(v){
   return Number.isInteger(v) ? String(v) : String(Math.round(v * 1000) / 1000);
 }
 function drawIns(n, x, y, id, sel, prog, out){
-  const d = I[n.name], w = n._w, h = n._h, wy = y + G.wy, cx = x + w / 2;
+  const d = defOf(n.name), w = n._w, h = n._h, wy = y + G.wy, cx = x + w / 2;
   const c = {prog};
   const xhl = state.hl && nodeRefs(n).some(r => tagKey(r.path, prog) === state.hl.key);
   out.push(`<g class="ins${sel ? ' sel' : ''}${xhl ? ' xhl' : ''}" data-id="${id}"><rect class="hit" x="${x + 2}" y="${y + 2}" width="${w - 4}" height="${h - 4}" rx="5"/>`);
@@ -1471,7 +1562,7 @@ function rungSVG(rung, ri, prog, minW){
 }
 
 /* ---------------- state, persistence, undo ---------------- */
-const state = {view:{kind:'routine', prog:0, rt:0}, sel:null, hl:null, expanded:new Set(), udtSel:0, logic:null, hsel:null, hmiRun:false, screen:0};
+const state = {view:{kind:'routine', prog:0, rt:0}, aoiCtx:{}, sel:null, hl:null, expanded:new Set(), udtSel:0, logic:null, hsel:null, hmiRun:false, screen:0};
 const KEY = 'openrung.project.v1';
 const strip = (k, v) => (k === 'ast' || k === 'err' || k[0] === '_') ? undefined : v;
 const snapshot = () => JSON.stringify(P, strip);
@@ -1505,7 +1596,7 @@ function load(){
   return null;
 }
 function emptyProject(name){
-  return normalize({name:name || 'MyProject', rev:'32.00', udts:[], tags:[], programs:[{name:'MainProgram', tags:[], routines:[{name:'MainRoutine', type:'RLL', rungs:[{comment:'', text:';'}]}]}]});
+  return normalize({name:name || 'MyProject', rev:'32.00', udts:[], aois:[], tags:[], programs:[{name:'MainProgram', tags:[], routines:[{name:'MainRoutine', type:'RLL', rungs:[{comment:'', text:';'}]}]}]});
 }
 function normalize(p){
   if (!p.hmi) p.hmi = {};
@@ -1514,19 +1605,31 @@ function normalize(p){
   if (!p.io) p.io = {};
   if (!Array.isArray(p.io.cards)) p.io.cards = [];
   if (!Array.isArray(p.io.models)) p.io.models = [];
-  for (const pr of p.programs) for (const r of pr.routines){ if (r.type === 'ST' && r.st == null) r.st = ''; if (!r.rungs) r.rungs = []; }
+  if (!Array.isArray(p.aois)) p.aois = [];
+  for (const a of p.aois){ a.aoi = true; if (!Array.isArray(a.tags)) a.tags = []; if (!Array.isArray(a.routines) || !a.routines.length) a.routines = [{name:'Logic', type:'RLL', rungs:[{comment:'', text:';'}]}]; }
+  for (const pr of [...p.programs, ...p.aois]) for (const r of pr.routines){ if (r.type === 'ST' && r.st == null) r.st = ''; if (!r.rungs) r.rungs = []; }
   return p;
 }
 function fixView(){
   const v = state.view;
-  if (v.kind === 'routine'){
+  if ((v.kind === 'routine' || v.kind === 'aoi') && v.aoi != null){
+    if (!P.aois[v.aoi]){ state.view = {kind:'routine', prog:0, rt:0}; return fixView(); }
+    if (v.kind === 'routine' && !P.aois[v.aoi].routines[v.rt]) v.rt = 0;
+  } else if (v.kind === 'routine'){
     if (!P.programs[v.prog]) v.prog = 0;
     const p = P.programs[v.prog];
     if (!p || !p.routines[v.rt]) v.rt = 0;
   }
   if (v.kind === 'hmi' && !P.hmi.screens[v.screen]) v.screen = 0;
 }
-function curProg(){ return P.programs[state.view.prog]; }
+function curProg(){ return state.view.aoi != null ? aoiView(P.aois[state.view.aoi]) : P.programs[state.view.prog]; }
+/* AOI logic is shown against one backing tag (its data context), or against the parameter defaults */
+function aoiView(a){
+  if (!a) return null;
+  const ctx = state.aoiCtx[a.name], r = ctx && resolveAny(ctx);
+  return r && !r.dim && lc(r.type) === lc(a.name) ? aoiScope(a, r.get(), null, ctx) : a;
+}
+const aoiChanged = a => { a._m = null; sigMemo = null; };
 function curRoutine(){ const p = curProg(); return p && p.routines[state.view.rt]; }
 function edit(fn){ pushUndo(); fn(); save(); }
 
@@ -1546,6 +1649,14 @@ function renderOrg(){
     h += `<li><form class="addrt" data-addrt="${pi}"><input id="newrt-${pi}" placeholder="New routine" aria-label="New routine name"><select id="newrtType-${pi}" aria-label="Routine type"><option value="RLL">Ladder</option><option value="ST">ST</option></select><button>Add</button></form></li>`;
     h += `</ul></li>`;
   });
+  h += `</ul><div class="grp">Add-On Instructions</div><ul class="tree">`;
+  P.aois.forEach((a, ai) => {
+    h += `<li><div class="node" style="cursor:default">${esc(a.name)}</div><ul class="tree">`;
+    h += `<li><button class="node${v.kind === 'aoi' && v.aoi === ai ? ' cur' : ''}" data-go="aoi" data-aoi="${ai}">Parameters and Local Tags <span class="cnt">${a.tags.length}</span></button></li>`;
+    a.routines.forEach((r, ri) => { h += `<li><button class="node${v.kind === 'routine' && v.aoi === ai && v.rt === ri ? ' cur' : ''}" data-go="routine" data-aoi="${ai}" data-rt="${ri}">${esc(r.name)} <span class="cnt">${r.type === 'RLL' ? r.rungs.length + ' rungs' : r.type === 'ST' ? 'structured text' : r.type + ', view only'}</span></button></li>`; });
+    h += `</ul></li>`;
+  });
+  h += `<li><form class="addrt" data-addaoi="1"><input id="newaoi" placeholder="New Add-On Instruction" aria-label="New Add-On Instruction name"><button>Add</button></form></li>`;
   h += `</ul><div class="grp">Data Types</div><ul class="tree"><li><button class="node${v.kind === 'types' ? ' cur' : ''}" data-go="types">User-Defined <span class="cnt">${P.udts.length}</span></button></li></ul>`;
   h += `<div class="grp">I/O Configuration</div><ul class="tree"><li><button class="node${v.kind === 'io' ? ' cur' : ''}" data-go="io">Rack and process models <span class="cnt">${P.io.cards.length + P.io.models.length}</span></button></li></ul>`;
   h += `<div class="grp">HMI · screens</div><ul class="tree">`;
@@ -1557,7 +1668,8 @@ function renderOrg(){
 }
 $('#org').addEventListener('click', e => {
   const b = e.target.closest('[data-go]'); if (!b) return;
-  if (b.dataset.go === 'routine') state.view = {kind:'routine', prog:+b.dataset.prog, rt:+b.dataset.rt};
+  if (b.dataset.go === 'routine') state.view = b.dataset.aoi != null ? {kind:'routine', aoi:+b.dataset.aoi, rt:+b.dataset.rt} : {kind:'routine', prog:+b.dataset.prog, rt:+b.dataset.rt};
+  else if (b.dataset.go === 'aoi') state.view = {kind:'aoi', aoi:+b.dataset.aoi};
   else if (b.dataset.go === 'tags') state.view = {kind:'tags', scope:+b.dataset.scope};
   else if (b.dataset.go === 'hmi'){ state.view = {kind:'hmi', screen:+b.dataset.screen}; state.hsel = null; }
   else state.view = {kind:b.dataset.go};
@@ -1570,6 +1682,11 @@ $('#org').addEventListener('submit', e => {
     if (!name){ toast('Type a name for the screen.'); return; }
     edit(() => P.hmi.screens.push({name, objs:[]}));
     state.view = {kind:'hmi', screen:P.hmi.screens.length - 1}; state.hsel = null; renderAll(); return;
+  }
+  if (e.target.dataset.addaoi){
+    if (!validName(name) || TYPES().some(t => lc(t) === lc(name)) || I[name.toUpperCase()]){ toast('Pick a new, valid name that is not a data type or an instruction.'); return; }
+    edit(() => P.aois.push({aoi:true, name, description:'', revision:'1.0', tags:[], routines:[{name:'Logic', type:'RLL', rungs:[{comment:'', text:';'}]}]}));
+    state.view = {kind:'aoi', aoi:P.aois.length - 1}; renderAll(); return;
   }
   const pi = +e.target.dataset.addrt;
   if (!/^[A-Za-z_]\w{0,39}$/.test(name)){ toast('Routine names use letters, digits and _ and start with a letter.'); return; }
@@ -1590,6 +1707,13 @@ function renderToolbar(){
   for (const [g, list] of TOOLBAR){
     h += `<div class="tg"><span>${g}</span><div>`;
     for (const n of list) h += `<button class="ib" data-ins="${n}" title="${esc(I[n].d)}"><b>${n}</b><i>${esc(I[n].g)}</i></button>`;
+    h += `</div></div>`;
+  }
+  const own = state.view.aoi != null && P.aois[state.view.aoi];
+  const aois = P.aois.filter(a => a !== own);
+  if (aois.length){
+    h += `<div class="tg"><span>Add-On</span><div>`;
+    for (const a of aois) h += `<button class="ib" data-ins="${esc(a.name)}" title="${esc(a.description || 'Add-On Instruction')}"><b>${esc(a.name)}</b><i>AOI</i></button>`;
     h += `</div></div>`;
   }
   h += `<div class="tg"><span>Structure</span><div>
@@ -1616,7 +1740,7 @@ function selRung(){
 }
 function insertIns(name){
   const rt = curRoutine(); if (!rt || rt.type !== 'RLL') return;
-  const d = I[name]; const node = {t:'i', name, args:d.p.map((_, k) => d.def && d.def[k] != null ? d.def[k] : '?')};
+  const d = defOf(name); const node = {t:'i', name, args:d.p.map((_, k) => d.def && d.def[k] != null ? d.def[k] : '?')};
   edit(() => {
     if (!rt.rungs.length) rt.rungs.push({comment:'', text:';'});
     let s = state.sel;
@@ -1698,7 +1822,12 @@ function renderLadder(){
   if (!rt){ view.innerHTML = '<div class="empty">Pick a routine on the left.</div>'; return; }
   REG = [];
   const minW = Math.max(500, view.clientWidth - 70);
-  let h = `<div class="lhead"><h2>${esc(rt.name)}</h2><span class="muted mono">${esc(prog.name)} · ${rt.type === 'RLL' ? rt.rungs.length + ' rungs' : rt.type}</span></div>`;
+  let h = `<div class="lhead"><h2>${esc(rt.name)}</h2><span class="muted mono">${prog.aoi ? 'AOI ' : ''}${esc(prog.name)} · ${rt.type === 'RLL' ? rt.rungs.length + ' rungs' : rt.type}</span>`;
+  if (prog.aoi){
+    const a = prog.def || prog, cur = state.aoiCtx[a.name] || '';
+    h += `<label class="muted" style="display:flex;gap:6px;align-items:center;margin-left:auto">Data context <select id="aoiCtx">${['', ...aoiTagPaths(a)].map(p => `<option value="${esc(p)}"${p === cur ? ' selected' : ''}>${p ? esc(p) : a.name + ' (definition defaults)'}</option>`).join('')}</select></label>`;
+  }
+  h += `</div>`;
   if (rt.type === 'ST'){
     const a = stAst(rt);
     h += `<div class="stwrap"><textarea id="stsrc" class="stsrc" spellcheck="false" rows="${Math.max(14, (rt.st || '').split('\n').length + 3)}" aria-label="Structured text">${esc(rt.st || '')}</textarea>
@@ -1780,7 +1909,7 @@ function renderWatch(rt, prog){
     return `<div class="wrow"><span class="mono">${esc(w)}</span><b class="mono${r.type === 'BOOL' && v ? ' t' : ''}">${esc(fmtVal(v))}</b></div>`; }).join('');
 }
 function toggleOperand(node, prog){
-  const d = I[node.name]; if (!d || d.k === 'b') return;
+  const d = defOf(node.name); if (!d || d.k === 'b') return;
   const r = resolve(node.args[0], prog);
   if (r && r.type === 'BOOL'){ writeTag(scoped(node.args[0], prog.tags.some(t => lc(t.name) === lc(String(node.args[0]).split(/[.\[]/)[0])) ? prog : null), 0, true); refreshLive(); }
 }
@@ -1794,18 +1923,19 @@ function tagKey(path, prog){
   const m = /^Program:([^.]+)\./i.exec(path);
   if (m) prog = P.programs.find(p => lc(p.name) === lc(m[1])) || null;
   const b = lc(tagBase(path)); if (!b) return null;
+  if (prog && prog.aoi) return 'a' + P.aois.indexOf(prog.def || prog) + ':' + b;
   return prog && prog.tags.some(t => lc(t.name) === b) ? P.programs.indexOf(prog) + ':' + b : 'c:' + b;
 }
 /* operands Studio 5000 calls destructive: the instruction writes them */
 const DEST = /^(Dest|Timer|Counter|Control|Structure|Storage bit|Output bit|Motion control|Return \d+)$/;
 function nodeRefs(n){
-  const d = I[n.name], labels = labelsFor(n), out = [];
+  const d = defOf(n.name), labels = labelsFor(n), out = [];
   (n.args || []).forEach((a, i) => {
     if (a == null || (d && d.en && d.en[i]) || (n.name === 'JSR' && i < 2)) return;
     if (n.name === 'CPT' && i === 1){ for (const w of stRefs(a)) out.push({arg:i, path:w, dest:false}); return; }
     a = String(a).trim();
     if (!/^[A-Za-z_]/.test(a)) return;
-    out.push({arg:i, path:a, dest:!!d && (d.k === 'o' || n.name === 'ONS' || n.name === 'SBR' || DEST.test(labels[i] || ''))});
+    out.push({arg:i, path:a, dest:!!d && (d.k === 'o' || n.name === 'ONS' || n.name === 'SBR' || (d.dst ? !!d.dst[i] : DEST.test(labels[i] || '')))});
   });
   return out;
 }
@@ -1838,6 +1968,10 @@ function xrefRows(key){
       walkSer(rung.ast, n => { for (const r of nodeRefs(n)) if (hit(r.path, pr)) rows.push({where:pr.name + ' / ' + rt.name, loc:'Rung ' + rgi, ins:n.name, path:r.path, dest:r.dest, go:{k:'rung', prog:pi, rt:ri, ri:rgi, node:n}}); });
     });
   }));
+  P.aois.forEach((a, ai) => a.routines.forEach((rt, ri) => (rt.rungs || []).forEach((rung, rgi) => {
+    ensureAst(rung); if (!rung.ast) return;
+    walkSer(rung.ast, n => { for (const r of nodeRefs(n)) if (hit(r.path, a)) rows.push({where:'AOI ' + a.name + ' / ' + rt.name, loc:'Rung ' + rgi, ins:n.name, path:r.path, dest:r.dest, go:{k:'rung', aoi:ai, rt:ri, ri:rgi, node:n}}); });
+  })));
   P.hmi.screens.forEach((sc, si) => sc.objs.forEach(o => {
     const paths = o.t === 'trend' ? (o.pens || []) : [o.tag];
     paths.forEach((p, k) => { if (p && hit(p, null)) rows.push({where:'HMI / ' + sc.name, loc:o.t === 'trend' ? 'Pen ' + (k + 1) : o.label || '', ins:(HT[o.t] || {n:o.t}).n, path:p, dest:['mom','mnt','entry'].includes(o.t), go:{k:'hmi', screen:si, id:o.id}}); });
@@ -1852,7 +1986,8 @@ function showXref(path, prog){
   const key = tagKey(path, prog);
   if (!key){ toast('Pick a tag to cross reference.'); return; }
   const base = tagBase(path), pi = +key.split(':')[0];
-  const scope = key[0] === 'c' ? 'Controller tag' : 'Program tag in ' + P.programs[pi].name;
+  const ai = key[0] === 'a' ? +key.slice(1).split(':')[0] : -1;
+  const scope = key[0] === 'c' ? 'Controller tag' : ai >= 0 ? 'Parameter or local tag of the Add-On Instruction ' + P.aois[ai].name : 'Program tag in ' + P.programs[pi].name;
   XR = xrefRows(key);
   const nd = XR.filter(r => r.dest).length;
   let h = `<h2>Cross reference · <span class="mono">${esc(base)}</span></h2>
@@ -1864,15 +1999,15 @@ function showXref(path, prog){
   openModal(h);
   const go = e => { const tr = e.target.closest('[data-xr]'); if (tr) goXref(XR[+tr.dataset.xr]); };
   const tb = $('#sheet tbody'); if (tb){ tb.onclick = go; tb.onkeydown = e => { if (e.key === 'Enter') go(e); }; tb.querySelector('tr').focus(); }
-  state.hl = {key, path, prog:key[0] === 'c' ? (prog || null) : P.programs[pi]};
+  state.hl = {key, path, prog:key[0] === 'c' ? (prog || null) : ai >= 0 ? prog : P.programs[pi]};
   if (state.view.kind === 'routine') renderLadder();
 }
 function goXref(r){
   closeModal();
   const g = r.go;
   if (g.k === 'rung' || g.k === 'st'){
-    state.view = {kind:'routine', prog:g.prog, rt:g.rt}; state.sel = null;
-    if (state.hl) state.hl.key = tagKey(r.path, P.programs[g.prog]);
+    state.view = g.aoi != null ? {kind:'routine', aoi:g.aoi, rt:g.rt} : {kind:'routine', prog:g.prog, rt:g.rt}; state.sel = null;
+    if (state.hl) state.hl.key = tagKey(r.path, g.aoi != null ? P.aois[g.aoi] : P.programs[g.prog]);
     renderAll();
     if (g.k === 'st'){ const ta = $('#stsrc'); if (ta){ ta.focus(); ta.setSelectionRange(g.at, g.at + g.len); const ln = ta.value.slice(0, g.at).split('\n').length; ta.scrollTop = Math.max(0, (ln - 4) * 18); } return; }
     const idx = REG.findIndex(o => o.node === g.node && o.ri === g.ri);
@@ -1897,6 +2032,7 @@ function showCtx(x, y, path){
     const hl = state.hl; hideCtx();
     if (b.dataset.c === 'xref') showXref(path, hl && hl.prog);
     else if (b.dataset.c === 'off'){ state.hl = null; renderLadder(); }
+    else if (hl && hl.key[0] === 'a'){ state.view = {kind:'aoi', aoi:+hl.key.slice(1).split(':')[0]}; state.sel = null; renderAll(); }
     else if (hl){ const pi = hl.key[0] === 'c' ? -1 : +hl.key.split(':')[0]; state.view = {kind:'tags', scope:pi}; state.sel = null; renderAll(); }
   };
 }
@@ -1912,7 +2048,7 @@ function tagPaths(prog){
     const ms = !isAtomic(type) && membersOf(type);
     if (ms) for (const m of ms) add(p + '.' + m.name, m.type, m.dim || 0, depth + 1);
   };
-  for (const t of [...(prog ? prog.tags : []), ...P.tags]) add(t.name, t.type, t.dim || 0, 0);
+  for (const t of [...(prog ? prog.tags : []), ...(prog && prog.aoi ? [] : P.tags)]) add(t.name, t.type, t.dim || 0, 0);
   return out;
 }
 function liveHTML(arg, prog, isRt){
@@ -1937,11 +2073,14 @@ function renderInspector(){
   if (v.kind === 'hmi'){ renderHmiInspector(box); return; }
   if (v.kind === 'io'){ box.innerHTML = `<div class="sect"><h3>I/O and simulation</h3><p class="note">Each card owns a controller tag. Digital cards use the bits of a DINT, so input 3 of slot 1 is <span class="mono">Slot1_DI.3</span>. Analog cards use a REAL[4].</p><p class="note">Click an input point or drag an analog slider to act as the field device. Process models read the controller's outputs and drive its inputs once per scan. In Program mode the outputs are off, so motors stop and valves close.</p><p class="note">Changes here are part of the project. While online, use Apply edits to send them.</p></div>`; return; }
   if (v.kind === 'alarms'){ box.innerHTML = `<div class="sect"><h3>Alarms</h3><p class="note">Each alarm watches one tag. It becomes active when the condition is true and stays in the list until it is back to normal and acknowledged.</p><p class="note">Put an Alarm list on a screen to see and acknowledge them in Run mode. Alarms are checked while you are online.</p></div>`; return; }
+  if (v.kind === 'aoi'){ box.innerHTML = `<div class="sect"><h3>Add-On Instructions</h3><p class="note">An Add-On Instruction (AOI) is your own instruction. Write the logic once, then call it from any rung with a different backing tag each time, the way each TON has its own TIMER.</p><p class="note"><b>Input</b> parameters are copied into the backing tag before the logic runs. <b>Output</b> parameters are copied out after. <b>InOut</b> parameters point straight at the caller's tag. <b>Local</b> tags, like a rundown timer, live inside each backing tag.</p><p class="note">Required parameters and every InOut become operands of the box, in the order listed. Others are reached as <span class="mono">Tag.Param</span>.</p><p class="note">Add a tag whose data type is the AOI's name to make a backing tag. Arrays work too, so <span class="mono">Conv[Index]</span> can pick one.</p></div>${helpSect()}`; return; }
   if (v.kind === 'types'){ box.innerHTML = `<div class="sect"><h3>Data types</h3><p class="note">User-defined types (UDTs) group members into one structure. BOOL members are packed into hidden host bytes on export, the same way the L5X format stores BIT members.</p><p class="note">Changing a type resets the values of tags that use it.</p></div>${helpSect()}`; return; }
   const rt = curRoutine(), prog = curProg();
   const s = state.sel;
   const progSect = () => {
     if (!rt || !prog) return '';
+    if (prog.aoi){ const a = prog.def || prog;
+      return `<div class="sect"><h3>Add-On Instruction ${esc(a.name)}</h3><p class="note">This logic runs each time a rung calls <span class="mono">${esc(a.name)}</span>. It sees only the instruction's parameters and local tags. Pick a backing tag under Data context to watch one call live.</p><p class="note mono">${esc(a.name)}(${['Tag', ...aoiArgs(a).map(t => t.name)].map(esc).join(', ')})</p><div class="btns"><button data-act="aoidef">Edit parameters</button></div></div>`; }
     const isMain = prog.main && lc(prog.main) === lc(rt.name);
     return `<div class="sect"><h3>Program ${esc(prog.name)}</h3><p class="note">${prog.main ? 'Main routine: <span class="mono">' + esc(prog.main) + '</span>. Other routines run only when a JSR calls them.' : 'No main routine is set, so every routine that no JSR calls runs each scan, top to bottom.'}</p>
       <div class="btns">${isMain ? '<button data-act="clearmain">Clear main routine</button>' : `<button data-act="setmain">Make ${esc(rt.name)} the main routine</button>`}<button class="danger" data-act="delrt">Delete routine</button></div></div>`;
@@ -1973,7 +2112,7 @@ JSR(Calc, 1, Input, Result);</div>
   } else if (s.kind === 'node'){
     const n = s.ser[s.idx];
     if (n && n.t === 'i'){
-      const d = I[n.name];
+      const d = defOf(n.name);
       const labels = labelsFor(n);
       h += `<div class="sect"><h3>${esc(n.name)}<small>${d ? esc(d.d) : 'Not simulated'}</small></h3>`;
       labels.forEach((lab, i) => {
@@ -2032,6 +2171,7 @@ $('#insp').addEventListener('click', e => {
   const b = e.target.closest('[data-act]'); if (!b) return;
   if (state.view.kind === 'hmi'){ hmiInspectorClick(b); return; }
   const s = state.sel, rt = curRoutine(), prog = curProg();
+  if (b.dataset.act === 'aoidef'){ state.view = {kind:'aoi', aoi:state.view.aoi}; state.sel = null; renderAll(); return; }
   if (b.dataset.act === 'setmain'){ edit(() => { prog.main = rt.name; }); renderAll(); return; }
   if (b.dataset.act === 'clearmain'){ edit(() => { delete prog.main; }); renderAll(); return; }
   if (b.dataset.act === 'delrt'){
@@ -2064,7 +2204,7 @@ $('#insp').addEventListener('click', e => {
 });
 
 /* ---------------- tags view ---------------- */
-const TYPES = () => ['BOOL','SINT','INT','DINT','REAL','TIMER','COUNTER','CONTROL', ...AXIS_TYPES, 'MOTION_INSTRUCTION', ...P.udts.map(u => u.name)];
+const TYPES = () => ['BOOL','SINT','INT','DINT','REAL','TIMER','COUNTER','CONTROL', ...AXIS_TYPES, 'MOTION_INSTRUCTION', ...P.udts.map(u => u.name), ...P.aois.map(a => a.name)];
 function renderTags(){
   const scope = state.view.scope;
   const prog = scope >= 0 ? P.programs[scope] : null;
@@ -2176,7 +2316,8 @@ function usesType(type, name, seen){
   return u.members.some(m => usesType(m.type, name, seen));
 }
 function reinstanceFor(name){
-  for (const t of [...P.tags, ...P.programs.flatMap(p => p.tags)]) if (usesType(t.type, name)) t.value = instantiate(t.type, t.dim || 0);
+  for (const t of [...P.tags, ...P.programs.flatMap(p => p.tags), ...P.aois.flatMap(a => a.tags.filter(x => x.usage === 'Local'))]) if (usesType(t.type, name)) t.value = instantiate(t.type, t.dim || 0);
+  for (const a of P.aois) if (a.tags.some(x => usesType(x.type, name))) a._m = null;
 }
 function renderTypes(){
   let h = `<div class="vhead"><h2>User-defined data types</h2></div>
@@ -2239,6 +2380,133 @@ $('#view').addEventListener('click', e => {
   }
 });
 
+/* ---------------- Add-On Instruction definition view ---------------- */
+/* backing tags of one AOI, as resolveAny paths: "Conv[2]" or "Program:MainProgram.Conv[2]" */
+function aoiTagPaths(a){
+  const out = [], add = (t, pre) => { if (t.alias || lc(t.type) !== lc(a.name)) return;
+    if (t.dim) for (let i = 0; i < Math.min(t.dim, 64); i++) out.push(`${pre}${t.name}[${i}]`); else out.push(pre + t.name); };
+  for (const t of P.tags) add(t, '');
+  for (const pr of P.programs) for (const t of pr.tags) add(t, `Program:${pr.name}.`);
+  return out;
+}
+const aoiDefault = t => {
+  if (isAtomic(t.type) && !t.dim) return `<input class="num" data-at="def" data-ti="#" value="${esc(fmtVal(t.value))}" style="width:80px" aria-label="Default value of ${esc(t.name)}">`;
+  if (!t.dim && t.value && typeof t.value === 'object' && 'PRE' in t.value) return `<label class="muted">PRE <input class="num" data-at="pre" data-ti="#" value="${Math.floor(t.value.PRE)}" style="width:70px" aria-label="Default preset of ${esc(t.name)}"></label>`;
+  return '<span class="muted">—</span>';
+};
+function renderAoiDef(){
+  const ai = state.view.aoi, a = P.aois[ai];
+  const types = TYPES().filter(t => lc(t) !== lc(a.name));
+  const inst = aoiTagPaths(a);
+  let h = `<div class="vhead"><h2>Add-On Instruction · ${esc(a.name)}</h2></div>
+    <div class="udt"><div class="uh"><input class="name" data-af="name" value="${esc(a.name)}" aria-label="Instruction name" spellcheck="false"><input data-af="desc" value="${esc(a.description || '')}" placeholder="Description" style="flex:1;min-width:160px" aria-label="Description">
+      <label class="muted" style="display:flex;gap:6px;align-items:center">Revision <input data-af="rev" value="${esc(a.revision || '1.0')}" style="width:60px"></label><button class="danger" data-delaoi="${ai}">Delete AOI</button></div>
+    <div class="tw"><table class="tt" style="min-width:860px"><thead><tr><th>Name</th><th>Usage</th><th>Data type</th><th>Array</th><th>Default</th><th title="Required: shows as an operand of the box">Req</th><th title="Visible on the box">Vis</th><th>Description</th><th></th></tr></thead><tbody>
+    <tr class="muted"><td class="mono">EnableIn</td><td>Input</td><td class="mono">BOOL</td><td></td><td></td><td></td><td></td><td>Rung condition in (system)</td><td></td></tr>
+    <tr class="muted"><td class="mono">EnableOut</td><td>Output</td><td class="mono">BOOL</td><td></td><td></td><td></td><td></td><td>Rung condition out (system)</td><td></td></tr>`;
+  a.tags.forEach((t, ti) => {
+    const loc = t.usage === 'Local', io = t.usage === 'InOut';
+    h += `<tr><td><input class="mono" data-at="name" data-ti="${ti}" value="${esc(t.name)}" spellcheck="false" aria-label="Name"></td>
+      <td><select data-at="usage" data-ti="${ti}" style="min-width:96px" aria-label="Usage of ${esc(t.name)}">${AOI_USAGE.map(u => `<option${u === t.usage ? ' selected' : ''}>${u}</option>`).join('')}</select></td>
+      <td><select data-at="type" data-ti="${ti}" aria-label="Data type of ${esc(t.name)}">${types.concat(types.includes(t.type) ? [] : [t.type]).map(x => `<option${x === t.type ? ' selected' : ''}>${esc(x)}</option>`).join('')}</select></td>
+      <td>${loc ? `<input type="number" min="0" data-at="dim" data-ti="${ti}" value="${t.dim || 0}" style="width:64px" aria-label="Array size">` : '<span class="muted">—</span>'}</td>
+      <td>${io ? '<span class="muted">—</span>' : aoiDefault(t).replace(/data-ti="#"/, `data-ti="${ti}"`)}</td>
+      <td>${loc ? '' : `<input type="checkbox" data-at="req" data-ti="${ti}"${t.required || io ? ' checked' : ''}${io ? ' disabled' : ''} aria-label="Required">`}</td>
+      <td>${loc ? '' : `<input type="checkbox" data-at="vis" data-ti="${ti}"${t.visible !== false ? ' checked' : ''} aria-label="Visible">`}</td>
+      <td><input data-at="desc" data-ti="${ti}" value="${esc(t.description || '')}" aria-label="Description of ${esc(t.name)}"></td>
+      <td style="white-space:nowrap"><button data-aup="${ti}" title="Move up" aria-label="Move ${esc(t.name)} up"${ti ? '' : ' disabled'}>↑</button> <button class="danger" data-adel="${ti}" aria-label="Delete ${esc(t.name)}">×</button></td></tr>`;
+  });
+  h += `</tbody></table></div>
+    <div class="btns"><button data-aadd="Input">Add input</button><button data-aadd="Output">Add output</button><button data-aadd="InOut">Add InOut</button><button data-aadd="Local">Add local tag</button><button class="primary" data-aopen="${ai}">Open logic</button></div>
+    <p class="note">Call it in a rung as <span class="mono">${esc(a.name)}(${['BackingTag', ...aoiArgs(a).map(t => t.name)].map(esc).join(',')})</span>. ${inst.length ? `Backing tags: <span class="mono">${esc(inst.slice(0, 12).join(', '))}${inst.length > 12 ? '…' : ''}</span>.` : `Add a tag of type <span class="mono">${esc(a.name)}</span> to make a backing tag.`} Changing a parameter's name, usage or type resets the values of its backing tags. A new default is copied into every backing tag.</p></div>`;
+  $('#view').innerHTML = h;
+}
+/* rename an instruction in every rung that calls it */
+function renameCalls(old, nn){
+  for (const pr of [...P.programs, ...P.aois]) for (const rt of pr.routines) for (const r of rt.rungs || []){
+    ensureAst(r); if (!r.ast) continue;
+    let hit = false; walk(r.ast, n => { if (lc(n.name) === lc(old)){ n.name = nn; hit = true; } });
+    if (hit) commitRung(r);
+  }
+}
+function aoiTagChange(a, t, f, el){
+  const ti = a.tags.indexOf(t);
+  if (f === 'name'){
+    const nn = el.value.trim();
+    if (!validName(nn) || /^Enable(In|Out)$/i.test(nn) || a.tags.some(x => x !== t && lc(x.name) === lc(nn))){ toast('Names must be valid and unique in this instruction.'); el.value = t.name; return; }
+    edit(() => { t.name = nn; aoiChanged(a); reinstanceFor(a.name); });
+  } else if (f === 'usage'){
+    edit(() => { t.usage = el.value; if (t.usage === 'InOut') t.required = true; if (t.usage !== 'Local') t.dim = 0; if (t.usage === 'Local') delete t.required; aoiChanged(a); reinstanceFor(a.name); });
+  } else if (f === 'type'){
+    edit(() => { t.type = el.value; t.value = instantiate(t.type, t.dim || 0); aoiChanged(a); reinstanceFor(a.name); });
+  } else if (f === 'dim'){
+    edit(() => { t.dim = Math.max(0, parseInt(el.value) || 0); t.value = instantiate(t.type, t.dim); aoiChanged(a); reinstanceFor(a.name); });
+  } else if (f === 'def' || f === 'pre'){
+    const v = parseVal(el.value, f === 'pre' ? 'DINT' : t.type);
+    edit(() => {
+      if (f === 'pre') t.value.PRE = v; else t.value = v;
+      aoiChanged(a);
+      for (const p of aoiTagPaths(a)){ const r = resolveAny(p), o = r && r.get(); if (o) o[t.name] = typeof t.value === 'object' ? JSON.parse(JSON.stringify(t.value)) : t.value; }
+    });
+  } else if (f === 'req'){ edit(() => { t.required = el.checked; aoiChanged(a); }); }
+  else if (f === 'vis'){ edit(() => { t.visible = el.checked; }); }
+  else if (f === 'desc'){ edit(() => { t.description = el.value; aoiChanged(a); }); return; }
+  if (ti >= 0) renderAoiDef();
+  renderOrg(); renderStatus();
+}
+$('#view').addEventListener('change', e => {
+  const el = e.target;
+  if (el.id === 'aoiCtx' && state.view.kind === 'routine' && state.view.aoi != null){
+    state.aoiCtx[P.aois[state.view.aoi].name] = el.value; state.sel = null; state.hl = null; renderLadder(); renderInspector(); return;
+  }
+  if (state.view.kind !== 'aoi') return;
+  const a = P.aois[state.view.aoi]; if (!a) return;
+  if (el.dataset.af === 'name'){
+    const nn = el.value.trim(), old = a.name;
+    if (lc(nn) === lc(old) && nn === old) return;
+    if (!validName(nn) || I[nn.toUpperCase()] || (lc(nn) !== lc(old) && TYPES().some(x => lc(x) === lc(nn)))){ toast('That name is taken, is an instruction, or is not valid.'); el.value = old; return; }
+    edit(() => {
+      a.name = nn; aoiChanged(a);
+      for (const tg of [...P.tags, ...P.programs.flatMap(p => p.tags), ...P.aois.flatMap(x => x.tags)]) if (lc(tg.type) === lc(old)) tg.type = nn;
+      for (const u of P.udts) for (const m of u.members) if (lc(m.type) === lc(old)) m.type = nn;
+      renameCalls(old, nn);
+      if (state.aoiCtx[old] != null){ state.aoiCtx[nn] = state.aoiCtx[old]; delete state.aoiCtx[old]; }
+    });
+    renderAll(); return;
+  }
+  if (el.dataset.af === 'desc'){ edit(() => { a.description = el.value; }); return; }
+  if (el.dataset.af === 'rev'){ edit(() => { a.revision = el.value.trim() || '1.0'; }); return; }
+  const t = a.tags[+el.dataset.ti]; if (t && el.dataset.at) aoiTagChange(a, t, el.dataset.at, el);
+});
+$('#view').addEventListener('click', e => {
+  if (state.view.kind !== 'aoi') return;
+  const a = P.aois[state.view.aoi]; if (!a) return;
+  const t = e.target;
+  const add = t.closest('[data-aadd]');
+  if (add){
+    const usage = add.dataset.aadd, base = usage === 'Local' ? 'Local' : usage === 'InOut' ? 'Ref' : usage === 'Output' ? 'Out' : 'In';
+    let i = 1; while (a.tags.some(x => lc(x.name) === lc(base + i))) i++;
+    const tg = {name:base + i, usage, type:'BOOL', dim:0, description:'', value:0};
+    if (usage !== 'Local'){ tg.required = true; tg.visible = true; }
+    edit(() => { a.tags.push(tg); aoiChanged(a); reinstanceFor(a.name); });
+    renderAoiDef(); renderOrg(); renderStatus();
+    const inp = $(`#view input[data-at="name"][data-ti="${a.tags.length - 1}"]`); if (inp){ inp.focus(); inp.select(); }
+    return;
+  }
+  const up = t.closest('[data-aup]');
+  if (up){ const k = +up.dataset.aup; if (k > 0) edit(() => { a.tags.splice(k - 1, 0, a.tags.splice(k, 1)[0]); aoiChanged(a); }); renderAoiDef(); return; }
+  const del = t.closest('[data-adel]');
+  if (del){ edit(() => { a.tags.splice(+del.dataset.adel, 1); aoiChanged(a); reinstanceFor(a.name); }); renderAoiDef(); renderOrg(); renderStatus(); return; }
+  const op = t.closest('[data-aopen]');
+  if (op){ state.view = {kind:'routine', aoi:state.view.aoi, rt:0}; state.sel = null; renderAll(); return; }
+  const da = t.closest('[data-delaoi]');
+  if (da){
+    if (aoiTagPaths(a).length || P.aois.some(x => x !== a && x.tags.some(tg => lc(tg.type) === lc(a.name)))){ toast(`Delete the ${a.name} backing tags first.`); return; }
+    if (!da.classList.contains('armed')){ da.classList.add('armed'); da.textContent = 'Click again to delete'; setTimeout(() => { da.classList.remove('armed'); da.textContent = 'Delete AOI'; }, 2500); return; }
+    edit(() => P.aois.splice(state.view.aoi, 1)); state.view = {kind:'routine', prog:0, rt:0}; renderAll();
+  }
+});
+
 /* ---------------- L5X import ---------------- */
 const kids = (el, name) => el ? [...el.children].filter(c => c.tagName === name) : [];
 const kid = (el, name) => kids(el, name)[0] || null;
@@ -2292,6 +2560,18 @@ function mergeTag(list, t, report){
   if (i >= 0) list[i] = t; else list.push(t);
   report.tags++;
 }
+function readRoutine(re, report){
+  const type = re.getAttribute('Type') || 'RLL';
+  const r = {name:re.getAttribute('Name'), type, rungs:[]};
+  if (type === 'RLL'){
+    for (const ru of kids(kid(re, 'RLLContent'), 'Rung')){
+      r.rungs.push({comment:cdata(kid(ru, 'Comment')), text:cdata(kid(ru, 'Text')).replace(/\s*\n\s*/g, ' ') || ';'});
+    }
+  } else if (type === 'ST'){
+    r.st = kids(kid(re, 'STContent'), 'Line').map(l => cdata(l)).join('\n');
+  } else report.skipped.push(`${type} routine ${r.name}: listed, but only ladder and structured text routines are editable`);
+  return r;
+}
 function importL5X(text){
   const doc = new DOMParser().parseFromString(text, 'application/xml');
   if (doc.getElementsByTagName('parsererror').length) throw new Error('This file is not valid XML.');
@@ -2320,8 +2600,39 @@ function importL5X(text){
     changedTypes.push(u.name); report.udts++;
   }
   changedTypes.forEach(reinstanceFor);
-  const aoi = kids(kid(ctl, 'AddOnInstructionDefinitions'), 'AddOnInstructionDefinition');
-  if (aoi.length) report.skipped.push(`${aoi.length} Add-On Instruction definition(s): kept out, calls to them show as unsimulated boxes`);
+  report.aois = 0;
+  for (const ad of kids(kid(ctl, 'AddOnInstructionDefinitions'), 'AddOnInstructionDefinition')){
+    const a = {aoi:true, name:ad.getAttribute('Name'), description:cdata(kid(ad, 'Description')), revision:ad.getAttribute('Revision') || '1.0', tags:[], routines:[]};
+    const i = P.aois.findIndex(x => lc(x.name) === lc(a.name));
+    if (i >= 0) P.aois[i] = a; else P.aois.push(a);
+    const defVal = (el, type, dim) => {
+      let v = instantiate(type, dim);
+      const dd = kids(el, 'DefaultData'), dec = dd.find(x => x.getAttribute('Format') === 'Decorated'), l5k = dd.find(x => x.getAttribute('Format') === 'L5K');
+      if (dec && dec.firstElementChild){ try { v = readDec(dec.firstElementChild, type, v); } catch(e){} }
+      else if (l5k && isAtomic(type) && !dim) v = parseVal(cdata(l5k), type);
+      return v;
+    };
+    const typeOf = el => { const t = el.getAttribute('DataType') || 'DINT'; return t === 'BIT' ? 'BOOL' : t; };
+    for (const pe of kids(kid(ad, 'Parameters'), 'Parameter')){
+      const name = pe.getAttribute('Name'); if (/^Enable(In|Out)$/i.test(name)) continue;
+      const usage = AOI_USAGE.find(u => lc(u) === lc(pe.getAttribute('Usage'))) || 'Input', type = typeOf(pe), dim = parseInt(pe.getAttribute('Dimensions')) || 0;
+      const t = {name, usage, type, dim, required:usage === 'InOut' || pe.getAttribute('Required') === 'true', visible:pe.getAttribute('Visible') !== 'false', description:cdata(kid(pe, 'Description'))};
+      if (usage !== 'InOut') t.value = defVal(pe, type, dim);
+      a.tags.push(t);
+    }
+    for (const le of kids(kid(ad, 'LocalTags'), 'LocalTag')){
+      const type = typeOf(le), dim = parseInt(le.getAttribute('Dimensions')) || 0;
+      a.tags.push({name:le.getAttribute('Name'), usage:'Local', type, dim, description:cdata(kid(le, 'Description')), value:defVal(le, type, dim)});
+    }
+    for (const re of kids(kid(ad, 'Routines'), 'Routine')){
+      const r = readRoutine(re, report);
+      a.routines.push(r);
+      if (lc(r.name) !== 'logic') report.skipped.push(`${a.name} / ${r.name}: kept, but only the Logic routine runs`);
+    }
+    if (!a.routines.length) a.routines.push({name:'Logic', type:'RLL', rungs:[{comment:'', text:';'}]});
+    report.aois++;
+    reinstanceFor(a.name);
+  }
   const mods = kids(kid(ctl, 'Modules'), 'Module');
   if (mods.length) report.skipped.push(`${mods.length} I/O module(s): hardware config is not modelled`);
   for (const tg of kids(kid(ctl, 'Tags'), 'Tag')) mergeTag(P.tags, parseTag(tg), report);
@@ -2332,15 +2643,7 @@ function importL5X(text){
     if (pe.getAttribute('MainRoutineName')) prog.main = pe.getAttribute('MainRoutineName');
     for (const tg of kids(kid(pe, 'Tags'), 'Tag')) mergeTag(prog.tags, parseTag(tg), report);
     for (const re of kids(kid(pe, 'Routines'), 'Routine')){
-      const type = re.getAttribute('Type') || 'RLL';
-      const r = {name:re.getAttribute('Name'), type, rungs:[]};
-      if (type === 'RLL'){
-        for (const ru of kids(kid(re, 'RLLContent'), 'Rung')){
-          r.rungs.push({comment:cdata(kid(ru, 'Comment')), text:cdata(kid(ru, 'Text')).replace(/\s*\n\s*/g, ' ') || ';'});
-        }
-      } else if (type === 'ST'){
-        r.st = kids(kid(re, 'STContent'), 'Line').map(l => cdata(l)).join('\n');
-      } else report.skipped.push(`${type} routine ${r.name}: listed, but only ladder and structured text routines are editable`);
+      const r = readRoutine(re, report), type = r.type;
       const i = prog.routines.findIndex(x => lc(x.name) === lc(r.name));
       if (i >= 0) prog.routines[i] = r; else prog.routines.push(r);
       report.routines.push({prog:prog.name, name:r.name, rungs:r.rungs.length, type});
@@ -2406,23 +2709,83 @@ function tagXML(t, withData){
   const atomic = isAtomic(t.type);
   const L = [`<Tag Name="${xa(t.name)}" TagType="Base" DataType="${xa(t.type)}"${t.dim ? ` Dimensions="${t.dim}"` : ''}${atomic ? ` Radix="${radix(t.type)}"` : ''} Constant="false" ExternalAccess="Read/Write">`];
   if (t.description) L.push(`<Description>\n${cd(t.description)}\n</Description>`);
-  const known = (atomic || membersOf(t.type)) && !NODATA.has(t.type);
-  if (withData && known){
-    L.push('<Data Format="Decorated">');
-    if (t.dim){
-      L.push(`<Array DataType="${xa(t.type)}" Dimensions="${t.dim}"${atomic ? ` Radix="${radix(t.type)}"` : ''}>`);
-      for (let i = 0; i < t.dim; i++){
-        if (atomic) L.push(`<Element Index="[${i}]" Value="${dv(t.type, t.value[i])}"/>`);
-        else L.push(`<Element Index="[${i}]">`, decStruct(t.type, t.value[i], 'Structure', ''), '</Element>');
-      }
-      L.push('</Array>');
-    } else if (atomic) L.push(`<DataValue DataType="${t.type}" Radix="${radix(t.type)}" Value="${dv(t.type, t.value)}"/>`);
-    else L.push(decStruct(t.type, t.value, 'Structure', ''));
-    L.push('</Data>');
-  }
+  if (withData && hasDec(t.type)) L.push('<Data Format="Decorated">', ...decLines(t), '</Data>');
   L.push('</Tag>');
   return L.join('\n');
 }
+const hasDec = type => (isAtomic(type) || !!membersOf(type)) && !NODATA.has(type) && !aoiOf(type);
+function decLines(t){
+  const atomic = isAtomic(t.type), L = [];
+  if (t.dim){
+    L.push(`<Array DataType="${xa(t.type)}" Dimensions="${t.dim}"${atomic ? ` Radix="${radix(t.type)}"` : ''}>`);
+    for (let i = 0; i < t.dim; i++){
+      if (atomic) L.push(`<Element Index="[${i}]" Value="${dv(t.type, t.value[i])}"/>`);
+      else L.push(`<Element Index="[${i}]">`, decStruct(t.type, t.value[i], 'Structure', ''), '</Element>');
+    }
+    L.push('</Array>');
+  } else if (atomic) L.push(`<DataValue DataType="${t.type}" Radix="${radix(t.type)}" Value="${dv(t.type, t.value)}"/>`);
+  else L.push(decStruct(t.type, t.value, 'Structure', ''));
+  return L;
+}
+/* AOI default values: L5K text for atomic, TIMER and COUNTER values, decorated data for everything known */
+const CTLBITS = {TIMER:['EN','TT','DN'], COUNTER:['CU','CD','DN','OV','UN']};
+function l5kOf(t){
+  if (t.dim) return null;
+  if (isAtomic(t.type)) return dv(t.type, t.value);
+  const bits = CTLBITS[t.type], v = t.value; if (!bits || !v) return null;
+  const w = bits.reduce((acc, b, k) => acc | ((v[b] ? 1 : 0) << (31 - k)), 0);
+  return `[${w | 0},${Math.trunc(v.PRE || 0)},${Math.trunc(v.ACC || 0)}]`;
+}
+function defaultXML(t){
+  const L = [], l5k = l5kOf(t);
+  if (l5k != null) L.push('<DefaultData Format="L5K">', cd(l5k), '</DefaultData>');
+  if (hasDec(t.type)) L.push('<DefaultData Format="Decorated">', ...decLines(t), '</DefaultData>');
+  return L;
+}
+function orderedAois(){
+  const out = [], seen = new Set();
+  const visit = a => { if (seen.has(a.name)) return; seen.add(a.name);
+    for (const t of a.tags){ const d = aoiOf(t.type); if (d && d !== a) visit(d); } out.push(a); };
+  P.aois.forEach(visit); return out;
+}
+const isoNow = () => new Date().toISOString().replace(/\.\d+Z$/, '.000Z');
+function aoiXML(a, use){
+  const desc = d => d ? [`<Description>`, cd(d), `</Description>`] : [];
+  const L = [`<AddOnInstructionDefinition Use="${use}" Name="${xa(a.name)}" Revision="${xa(a.revision || '1.0')}" ExecutePrescan="false" ExecutePostscan="false" ExecuteEnableInFalse="false" CreatedDate="${isoNow()}" CreatedBy="OpenRung" EditedDate="${isoNow()}" EditedBy="OpenRung" SoftwareRevision="v${xa(P.rev || '32.00')}">`];
+  L.push(...desc(a.description), '<Parameters>');
+  const sys = (name, usage, def, d) => [`<Parameter Name="${name}" TagType="Base" DataType="BOOL" Usage="${usage}" Radix="Decimal" Required="false" Visible="false" ExternalAccess="Read Only">`, ...desc(d),
+    '<DefaultData Format="L5K">', cd(def), '</DefaultData>', '<DefaultData Format="Decorated">', `<DataValue DataType="BOOL" Radix="Decimal" Value="${def}"/>`, '</DefaultData>', '</Parameter>'];
+  L.push(...sys('EnableIn', 'Input', '1', 'Enable Input - System Defined Parameter'), ...sys('EnableOut', 'Output', '0', 'Enable Output - System Defined Parameter'));
+  for (const t of a.tags.filter(x => x.usage !== 'Local')){
+    const io = t.usage === 'InOut', rx = isAtomic(t.type) ? ` Radix="${radix(t.type)}"` : '';
+    const head = `<Parameter Name="${xa(t.name)}" TagType="Base" DataType="${xa(t.type)}"${t.dim ? ` Dimensions="${t.dim}"` : ''} Usage="${t.usage}"${rx} Required="${io || t.required ? 'true' : 'false'}" Visible="${t.visible === false ? 'false' : 'true'}"`;
+    if (io) L.push(head + ' Constant="false">', ...desc(t.description), '</Parameter>');
+    else L.push(head + ` ExternalAccess="${t.usage === 'Output' ? 'Read Only' : 'Read/Write'}">`, ...desc(t.description), ...defaultXML(t), '</Parameter>');
+  }
+  L.push('</Parameters>');
+  const locals = a.tags.filter(x => x.usage === 'Local');
+  if (locals.length){
+    L.push('<LocalTags>');
+    for (const t of locals) L.push(`<LocalTag Name="${xa(t.name)}" DataType="${xa(t.type)}"${t.dim ? ` Dimensions="${t.dim}"` : ''}${isAtomic(t.type) ? ` Radix="${radix(t.type)}"` : ''} ExternalAccess="None">`, ...desc(t.description), ...defaultXML(t), '</LocalTag>');
+    L.push('</LocalTags>');
+  }
+  L.push('<Routines>');
+  for (const rt of a.routines) if (rt.type === 'RLL' || rt.type === 'ST') L.push(routineXML(a, rt, ''));
+  L.push('</Routines>', '</AddOnInstructionDefinition>');
+  return L.join('\n');
+}
+function exportAoi(ai){
+  const a = P.aois[ai], deps = orderedAois().filter(x => x !== a && aoiUses(a, x.name));
+  const udts = orderedUdts().filter(u => [a, ...deps].some(x => x.tags.some(t => usesType(t.type, u.name))));
+  const L = ['<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
+    `<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="${xa(P.rev || '32.00')}" TargetName="${xa(a.name)}" TargetType="AddOnInstructionDefinition" TargetRevision="${xa(a.revision || '1.0')}" TargetLastEdited="${isoNow()}" ContainsContext="true" ExportDate="${exportDate()}" ExportOptions="References NoRawData L5KData DecoratedData Context Dependencies ForceProtectedEncoding AllProjDocTrans">`,
+    `<Controller Use="Context" Name="${xa(P.name)}">`];
+  if (udts.length) L.push('<DataTypes Use="Context">', ...udts.map(udtXML), '</DataTypes>');
+  L.push('<AddOnInstructionDefinitions Use="Context">', ...deps.map(x => aoiXML(x, 'Context')), aoiXML(a, 'Target'), '</AddOnInstructionDefinitions>', '</Controller>', '</RSLogix5000Content>');
+  return L.join('\n');
+}
+const aoiUses = (a, name, seen) => { seen = seen || new Set(); if (seen.has(a.name)) return false; seen.add(a.name);
+  return a.tags.some(t => lc(t.type) === lc(name) || (aoiOf(t.type) && aoiUses(aoiOf(t.type), name, seen))); };
 function rungsXML(prog, rt){
   return rt.rungs.map((r, i) => {
     ensureAst(r);
@@ -2449,11 +2812,30 @@ function exportRoutine(pi, ri, withData){
   L.push(`<Controller Use="Context" Name="${xa(P.name)}">`);
   const udts = orderedUdts();
   if (udts.length) L.push('<DataTypes Use="Context">', ...udts.map(udtXML), '</DataTypes>');
+  if (P.aois.length) L.push('<AddOnInstructionDefinitions Use="Context">', ...orderedAois().map(a => aoiXML(a, 'Context')), '</AddOnInstructionDefinitions>');
   if (P.tags.length) L.push('<Tags Use="Context">', ...P.tags.map(t => tagXML(t, withData)), '</Tags>');
   L.push('<Programs Use="Context">', `<Program Use="Context" Name="${xa(prog.name)}">`);
   if (prog.tags.length) L.push('<Tags Use="Context">', ...prog.tags.map(t => tagXML(t, withData)), '</Tags>');
+  L.push('<Routines Use="Context">', routineXML(prog, rt, ' Use="Target"'), '</Routines>', '</Program>', '</Programs>', '</Controller>', '</RSLogix5000Content>');
+  return L.join('\n');
+}
+function routineXML(prog, rt, use){
+  const st = rt.type === 'ST';
   const body = st ? ['<STContent>', ...String(rt.st || '').split('\n').map((ln, i) => `<Line Number="${i}">\n${cd(ln)}\n</Line>`), '</STContent>'] : ['<RLLContent>', rungsXML(prog, rt), '</RLLContent>'];
-  L.push('<Routines Use="Context">', `<Routine Use="Target" Name="${xa(rt.name)}" Type="${st ? 'ST' : 'RLL'}">`, ...body, '</Routine>', '</Routines>', '</Program>', '</Programs>', '</Controller>', '</RSLogix5000Content>');
+  return [`<Routine${use} Name="${xa(rt.name)}" Type="${st ? 'ST' : 'RLL'}">`, ...body, '</Routine>'].join('\n');
+}
+/* a whole program: every ladder and ST routine, its tags, and the data types, AOIs and controller tags as context */
+function exportProgram(pi, withData){
+  const prog = P.programs[pi], udts = orderedUdts();
+  const L = ['<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
+    `<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="${xa(P.rev || '32.00')}" TargetName="${xa(prog.name)}" TargetType="Program" ContainsContext="true" ExportDate="${exportDate()}" ExportOptions="References NoRawData L5KData DecoratedData Context Dependencies ForceProtectedEncoding AllProjDocTrans">`,
+    `<Controller Use="Context" Name="${xa(P.name)}">`];
+  if (udts.length) L.push('<DataTypes Use="Context">', ...udts.map(udtXML), '</DataTypes>');
+  if (P.aois.length) L.push('<AddOnInstructionDefinitions Use="Context">', ...orderedAois().map(a => aoiXML(a, 'Context')), '</AddOnInstructionDefinitions>');
+  if (P.tags.length) L.push('<Tags Use="Context">', ...P.tags.map(t => tagXML(t, withData)), '</Tags>');
+  L.push('<Programs Use="Context">', `<Program Use="Target" Name="${xa(prog.name)}" TestEdits="false"${prog.main ? ` MainRoutineName="${xa(prog.main)}"` : ''} Disabled="false" UseAsFolder="false">`);
+  if (prog.tags.length) L.push('<Tags>', ...prog.tags.map(t => tagXML(t, withData)), '</Tags>');
+  L.push('<Routines>', ...prog.routines.filter(r => r.type === 'RLL' || r.type === 'ST').map(r => routineXML(prog, r, '')), '</Routines>', '</Program>', '</Programs>', '</Controller>', '</RSLogix5000Content>');
   return L.join('\n');
 }
 
@@ -2488,9 +2870,10 @@ function runImport(text){
     normalize(P); undo.push(before);
     const first = rep.routines.find(r => r.type === 'RLL' || r.type === 'ST');
     if (first){ const pi = P.programs.findIndex(p => p.name === first.prog); state.view = {kind:'routine', prog:pi, rt:P.programs[pi].routines.findIndex(r => r.name === first.name)}; }
+    else if (rep.aois) state.view = {kind:'aoi', aoi:P.aois.length - 1};
     else fixView();
     state.sel = null; save(); renderAll();
-    const lines = [`Imported ${rep.target.toLowerCase()} ${rep.name}`, `${rep.udts} data type(s), ${rep.tags} tag(s)`, ...rep.routines.map(r => `${r.prog} / ${r.name}: ${r.type === 'RLL' ? r.rungs + ' rungs' : r.type}`)];
+    const lines = [`Imported ${rep.target.toLowerCase()} ${rep.name}`, `${rep.udts} data type(s), ${rep.aois ? rep.aois + ' Add-On Instruction(s), ' : ''}${rep.tags} tag(s)`, ...rep.routines.map(r => `${r.prog} / ${r.name}: ${r.type === 'RLL' ? r.rungs + ' rungs' : r.type}`)];
     const errs = countErrors();
     if (errs.rungs) lines.push(`${errs.rungs} rung(s) have text the editor could not read`);
     if (errs.ops) lines.push(`${errs.ops} operand(s) point at tags that are not in the file`);
@@ -2507,21 +2890,23 @@ const inViewer = () => !!(window.claude && typeof window.claude.use === 'functio
 function showExport(){
   const opts = [];
   P.programs.forEach((p, pi) => p.routines.forEach((r, ri) => { if (r.type === 'RLL' || r.type === 'ST') opts.push([pi, ri, `${p.name} / ${r.name}${r.type === 'ST' ? ' (ST)' : ''}`]); }));
+  P.programs.forEach((p, pi) => opts.push(['prog', pi, `Program ${p.name} (all routines)`]));
+  P.aois.forEach((a, ai) => opts.push(['aoi', ai, `Add-On Instruction ${a.name}`]));
   if (!opts.length){ toast('There is no ladder or structured text routine to export.'); return; }
-  const cur = state.view.kind === 'routine' ? `${state.view.prog}:${state.view.rt}` : `${opts[0][0]}:${opts[0][1]}`;
+  const v = state.view, cur = v.aoi != null && (v.kind === 'routine' || v.kind === 'aoi') ? `aoi:${v.aoi}` : v.kind === 'routine' ? `${v.prog}:${v.rt}` : `${opts[0][0]}:${opts[0][1]}`;
   openModal(`<h2>Export L5X</h2>
-    <p>Exports one routine with its data types and tags as context. In Studio 5000, right-click a program and choose <b>Add › Import Routine</b> to bring it in.</p>
+    <p>Exports one routine, a whole program, or an Add-On Instruction, with the data types, AOIs and tags it needs as context. In Studio 5000, right-click a program and choose <b>Add › Import Routine</b>, right-click a task and choose <b>Add › Import Program</b>, or right-click <b>Add-On Instructions › Import Add-On Instruction</b>.</p>
     <div class="addrow"><div class="field"><label for="exRt">Routine</label><select id="exRt">${opts.map(o => `<option value="${o[0]}:${o[1]}"${`${o[0]}:${o[1]}` === cur ? ' selected' : ''}>${esc(o[2])}</option>`).join('')}</select></div>
     <label style="display:flex;gap:6px;align-items:center;padding-bottom:6px"><input type="checkbox" id="exData" checked> Include tag values</label></div>
     <textarea id="exXml" readonly spellcheck="false" rows="12"></textarea>
     <div class="btns"><button class="primary" id="exSave">Save file</button><button id="exCopy">Copy XML</button><button data-close>Close</button></div>
     <p class="note" id="exNote"></p>`);
-  const gen = () => { const [pi, ri] = $('#exRt').value.split(':').map(Number); $('#exXml').value = exportRoutine(pi, ri, $('#exData').checked); };
+  const pick = () => { const [x, y] = $('#exRt').value.split(':'); return x === 'aoi' ? {aoi:+y, name:P.aois[+y].name} : x === 'prog' ? {prog:+y, name:P.programs[+y].name} : {pi:+x, ri:+y, name:P.programs[+x].routines[+y].name}; };
+  const gen = () => { const p = pick(); $('#exXml').value = p.aoi != null ? exportAoi(p.aoi) : p.prog != null ? exportProgram(p.prog, $('#exData').checked) : exportRoutine(p.pi, p.ri, $('#exData').checked); };
   $('#exRt').onchange = gen; $('#exData').onchange = gen; gen();
   $('#exCopy').onclick = e => copy($('#exXml').value, e.target);
   $('#exSave').onclick = async () => {
-    const [pi, ri] = $('#exRt').value.split(':').map(Number);
-    const base = P.programs[pi].routines[ri].name, xml = $('#exXml').value;
+    const base = pick().name, xml = $('#exXml').value;
     if (!inViewer()){
       const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([xml], {type:'application/xml'})); a.download = base + '.L5X'; a.click();
       $('#exNote').textContent = 'Saved ' + base + '.L5X'; return;
@@ -2541,7 +2926,8 @@ function showAbout(){
       <li>Instructions: XIC, XIO, ONS, OTE, OTL, OTU, OSR, OSF, TON, TOF, RTO, CTU, CTD, RES, EQU, NEQ, GRT, GEQ, LES, LEQ, LIM, MEQ, MOV, ADD, SUB, MUL, DIV, MOD, CPT, CLR, COP, FLL, SQO, JSR, SBR, RET, NOP, AFI, and motion: MSO, MSF, MAFR, MAH, MAJ, MAM, MAS on a simulated servo axis.</li>
       <li>Structured text: assignments, IF, CASE, FOR, WHILE, REPEAT, JSR and math functions.</li>
       <li>Tags: BOOL, SINT, INT, DINT, REAL, TIMER, COUNTER, CONTROL, AXIS_CIP_DRIVE, AXIS_VIRTUAL, MOTION_INSTRUCTION, arrays, aliases and your own data types.</li>
-      <li>Not covered yet: function block and SFC routines, Add-On Instructions, and downloading to a real controller.</li>
+      <li>Add-On Instructions with Input, Output and InOut parameters, local tags and a ladder or structured text Logic routine, called from rungs and exported with your routines.</li>
+      <li>Not covered yet: function block and SFC routines, AOI Prescan and EnableInFalse routines, and downloading to a real controller.</li>
     </ul>
     <p>License: MIT. The whole app is one HTML file, so you can open it offline or host it anywhere.</p>
     <div class="btns"><button class="primary" data-close>Close</button></div>`);
@@ -2652,7 +3038,7 @@ function toast(msg){
 }
 function countErrors(){
   let rungs = 0, ops = 0;
-  for (const prog of P.programs) for (const rt of prog.routines){
+  for (const prog of [...P.programs, ...P.aois]) for (const rt of prog.routines){
     if (rt.type === 'ST'){ if (stAst(rt).err) rungs++; continue; }
     for (const r of rt.rungs){
       ensureAst(r); if (!r.ast){ rungs++; continue; }
@@ -2664,7 +3050,7 @@ function countErrors(){
   }
   return {rungs, ops};
 }
-function reparseAll(){ for (const p of P.programs) for (const rt of p.routines) for (const r of rt.rungs || []){ r.ast = null; r.err = null; ensureAst(r); } }
+function reparseAll(){ for (const p of [...P.programs, ...P.aois]) for (const rt of p.routines) for (const r of rt.rungs || []){ r.ast = null; r.err = null; ensureAst(r); } }
 function renderStatus(){
   const e = countErrors();
   const c = CONN.plc, parts = [];
@@ -2703,6 +3089,7 @@ function renderAll(){
   else if (k === 'hmi') renderHmi();
   else if (k === 'io') renderIO();
   else if (k === 'alarms') renderAlarms();
+  else if (k === 'aoi') renderAoiDef();
   else renderTypes();
   renderInspector(); renderStatus(); renderCtl();
 }
@@ -3448,8 +3835,12 @@ Root_Of_Sum := SQRT(ABS(Sum));`});
 }
 
 /* ---------------- boot ---------------- */
+/* a copy of the page can carry a project (an .openrung.json file pasted into #startProject); it opens the first time */
+const startProject = (() => { try { const t = $('#startProject').textContent.trim(), j = t && JSON.parse(t); return j ? j.project || j : null; } catch(e){ return null; } })();
 P = load();
-if (P){
+if (startProject && startProject.programs && (!P || (P.name !== startProject.name && !recentList().some(r => r.name === startProject.name)))){
+  P = normalize(startProject); reparseAll(); applyLiterals(); save(true);
+} else if (P){
   const old = !P.hmi; normalize(P); reparseAll();
   if (old && P.name === 'Lab5' && P.programs.some(pr => pr.routines.some(r => r.name === 'Demo_Timers'))) addDemo(P);
   if ((P.name === 'Demo' || P.name === 'Lab5') && P.programs.some(pr => pr.routines.some(r => r.name === 'Axis_Motion'))){ addShowcase(P); reparseAll(); }
