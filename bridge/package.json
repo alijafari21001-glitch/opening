@@ -10,7 +10,7 @@
   "license": "MIT",
   "dependencies": {
     "modbus-serial": "^8.0.17",
-    "ws": "^8.18.0"
+    "ws": "^8.22.1"
   },
   "optionalDependencies": {
     "node-opcua": "^2.120.0"
