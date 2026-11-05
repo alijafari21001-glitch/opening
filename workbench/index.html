@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' blob: https://cdn.jsdelivr.net; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' data: blob: https://*.supabase.co wss://*.supabase.co ws://localhost:* ws://127.0.0.1:* http://localhost:* http://127.0.0.1:*; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Automation Workbench</title>
 <meta name="description" content="PL-01 production line: PLC + HMI (OpenRung), robots and line (OpenCell) and electrical panels (OpenPanel) sharing live I/O.">
@@ -168,7 +169,7 @@
         <input id="aCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456"><div class="msg"></div>
         <div class="row"><button data-a="back">Use another email</button><button class="pri" data-a="verify">Sign in</button></div>`;
     } else {
-      accBody.innerHTML = `<h3>Sign in</h3><p>Enter your email and we'll send you a 6-digit code. No password needed. New emails get an account automatically.</p>
+      accBody.innerHTML = `<h3>Sign in</h3><p>You're looking at the PL-01 demo line. Sign in to get your own cell with a robot, saved to your account. Enter your email and we'll send you a 6-digit code. No password needed.</p>
         <input id="aEmail" type="email" autocomplete="email" placeholder="you@school.edu" value="${esc(ACC.email)}"><div class="msg"></div>
         <div class="row"><button data-a="close">Close</button><button class="pri" data-a="send">Email me a code</button></div>`;
     }
@@ -196,7 +197,7 @@
       if (act === 'send'){ const em = accBody.querySelector('#aEmail').value.trim(); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) return setMsg('Enter a valid email'); a.disabled = true; setMsg('Sending…', true); const sb = await client(); const { error } = await sb.auth.signInWithOtp({ email: em, options: { shouldCreateUser: true } }); a.disabled = false; if (error) return setMsg(error.message); ACC.email = em; ACC.step = 'code'; return render(); }
       if (act === 'back'){ ACC.step = 'email'; return render(); }
       if (act === 'verify'){ const code = accBody.querySelector('#aCode').value.trim(); if (!/^\d{6}$/.test(code)) return setMsg('Enter the 6 digits from the email'); a.disabled = true; const sb = await client(); const { data, error } = await sb.auth.verifyOtp({ email: ACC.email, token: code, type: 'email' }); a.disabled = false; if (error) return setMsg(error.message); ACC.user = data.user; ACC.step = 'email'; render(); return firstSync(); }
-      if (act === 'out'){ const sb = await client(); await push(true); await sb.auth.signOut(); ACC.user = null; render(); return; }
+      if (act === 'out'){ const sb = await client(); await push(true); await sb.auth.signOut(); ACC.user = null; cell.contentWindow.postMessage({wb:'cell', kind:'demo'}, '*'); render(); return; }
       if (act === 'push') return push(false);
       if (act === 'pull'){ if (confirm('Replace the work in this browser with the copy saved in your account?')) return pull(); }
     } catch(err){ a.disabled = false; setMsg(err.message || String(err)); }
@@ -204,8 +205,11 @@
   // first sign-in on this browser: if the account already has a save, offer to load it; otherwise upload what is here
   async function firstSync(){
     const sb = await client(); const { data } = await sb.from('workbench_saves').select('updated_at').eq('user_id', ACC.user.id).maybeSingle();
-    if (data && confirm('Your account has saved work from ' + new Date(data.updated_at).toLocaleString() + '. Load it here? (Cancel keeps this browser\'s work and saves it to your account.)')) return pull();
-    await push(false);
+    if (data) return pull();   // returning user: bring back their own work
+    // new account: start them from an empty cell with one robot (the PL-01 line stays one click away in Cells)
+    cell.contentWindow.postMessage({wb:'cell', kind:'empty'}, '*');
+    setMsg('Welcome! Your own empty cell with one robot is loading. The PL-01 demo is still under Cells.', true);
+    setTimeout(() => push(true), 5000);
   }
   accBtn.onclick = () => { render(); accDlg.showModal(); render(); };
   accDlg.addEventListener('click', e => { if (e.target === accDlg) accDlg.close(); });

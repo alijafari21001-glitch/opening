@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OpenCell</title>
+  <meta name="description" content="Free, open-source robot cell simulator in the browser. Teach pendant, TP programs, jogging, IK." />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%231d2733'/%3E%3Cpath d='M7 25h10M12 25V16l7-6 6 4' stroke='%23f0c419' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+</head>
+<body>
+  <div id="app">
+    <header id="topbar">
+      <div class="brand"><span class="logo"></span>OpenCell <small>robot cell simulator</small></div>
+      <div class="views">
+        <button data-view="iso" title="Isometric view">Iso</button>
+        <button data-view="top" title="Top view">Top</button>
+        <button data-view="front" title="Front view">Front</button>
+        <button data-view="side" title="Side view">Side</button>
+      </div>
+      <div class="views" role="group" aria-label="Mouse jog">
+        <span class="lbl">Mouse jog</span>
+        <button data-gizmo="off" title="No gizmo">Off</button>
+        <button data-gizmo="translate" title="Drag the arrows to move the TCP">Move</button>
+        <button data-gizmo="rotate" title="Drag the rings to rotate the tool">Rotate</button>
+      </div>
+      <div class="views">
+        <button id="btn-trace" title="Show the TCP path while a program runs">Trace</button>
+        <button id="btn-clear" title="Clear the path trace">Clear</button>
+      </div>
+      <div class="spacer"></div>
+      <button id="btn-plc" title="Link robot I/O to OpenRung PLC tags">PLC</button>
+      <button id="btn-lib" title="Fences, conveyors, pallets, sensors, machines, your CAD files and Onshape">Library</button>
+      <button id="btn-tp" title="Load .LS programs, check and export them for HandlingPRO">TP files</button>
+      <button id="btn-labs" title="Ready-made lab cells">Labs</button>
+      <button id="btn-save" title="Save, switch and download cells (Ctrl+S save, Ctrl+O switch)">Cells</button>
+      <button id="btn-open" title="Open a .opencell.json cell file">Open file</button>
+      <input type="file" id="cell-file" accept=".json,.opencell" hidden>
+      <button id="btn-help">Help</button>
+    </header>
+    <aside id="browser"></aside>
+    <main id="view">
+      <div id="hud"></div>
+    </main>
+    <aside id="pendant"></aside>
+    <footer id="runbar"></footer>
+  </div>
+  <dialog id="help"></dialog>
+  <dialog id="labs"></dialog>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

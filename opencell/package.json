@@ -1,0 +1,25 @@
+{
+  "name": "opencell",
+  "version": "0.1.0",
+  "description": "Free, open-source browser-based robot cell simulator (FANUC TP compatible).",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "build:single": "vite build --mode single",
+    "preview": "vite preview",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "three": "0.169.0"
+  },
+  "devDependencies": {
+    "@types/three": "0.169.0",
+    "typescript": "5.6.3",
+    "vite": "5.4.21",
+    "vite-plugin-singlefile": "2.0.3",
+    "vitest": "2.1.9"
+  }
+}

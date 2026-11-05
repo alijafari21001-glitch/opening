@@ -1,0 +1,15 @@
+name: Bug report
+description: Something doesn't work
+labels: [bug]
+body:
+  - type: dropdown
+    id: tool
+    attributes: { label: Which tool, options: [Workbench, OpenRung, OpenCell, OpenPanel, Bridge] }
+    validations: { required: true }
+  - type: textarea
+    id: steps
+    attributes: { label: Steps to reproduce, description: What you clicked, and what happened instead of what you expected }
+    validations: { required: true }
+  - type: input
+    id: browser
+    attributes: { label: Browser and OS }

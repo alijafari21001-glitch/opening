@@ -12,7 +12,9 @@ npm install          # ws, modbus-serial, and node-opcua (optional, large)
 npm start            # ws://127.0.0.1:8502, Modbus TCP on 5020, OPC UA on 4840
 ```
 
-Options: `--port 8502 --modbus 5020 --opcua 4840 --map openrung-map.json` (or `OPENRUNG_PORT`, `OPENRUNG_MODBUS`, ...). Port 502 needs admin rights, so the default is 5020.
+Options: `--port 8502 --modbus 5020 --opcua 4840 --map openrung-map.json --host 127.0.0.1 --origin https://alijafari21001-glitch.github.io` (or `OPENRUNG_PORT`, `OPENRUNG_MODBUS`, `OPENRUNG_HOST`, ...). Port 502 needs admin rights, so the default is 5020.
+
+**Security:** by default the bridge only listens on this computer (`127.0.0.1`) and only accepts the OpenRung page from GitHub Pages, localhost or a local file. Modbus TCP has no passwords, so use `--host 0.0.0.0` only on a trusted, isolated network (for example to reach FUXA in Docker). Add more allowed page origins with `--origin a,b`.
 
 Then open OpenRung **from its local `index.html` or from GitHub Pages** (the Claude artifact viewer blocks local connections), go online, click the controller status in the top bar, and press **Connect** under *Bridge to other tools*.
 
@@ -32,7 +34,7 @@ Writes only reach the controller while the OpenRung page is online.
 ## Test with FUXA
 
 1. Run FUXA (`docker run -d -p 1881:1881 frangoteam/fuxa:latest`) and open http://localhost:1881.
-2. Connections: add a device, type **ModbusTCP**, address `host.docker.internal` (or your PC's IP) and port `5020`, slave id 1.
+2. Start the bridge with `npm start -- --host 0.0.0.0` so Docker can reach it. Connections: add a device, type **ModbusTCP**, address `host.docker.internal` (or your PC's IP) and port `5020`, slave id 1.
 3. Add tags from the map page: `Start_PB` as Coil Status at its coil address, `Tank_Level` as Holding Register, type **Float32**, at its register address. Use Int32 for DINT tags.
 4. Draw a button bound to `Start_PB` and a gauge bound to `Tank_Level`. With OpenRung online and in Run, the gauge follows the tank model and the button starts the line.
 

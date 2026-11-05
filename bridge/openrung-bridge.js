@@ -12,6 +12,13 @@ const arg = (name, def) => { const i = process.argv.indexOf('--' + name); return
 const WS_PORT = +arg('port', 8502);
 const MB_PORT = +arg('modbus', 5020);
 const UA_PORT = +arg('opcua', 4840);
+// Network exposure: by default everything listens on this computer only. Use --host 0.0.0.0 to let a PLC/SCADA on the LAN connect
+// (Modbus TCP has no authentication, so only do that on a trusted, isolated network).
+const HOST = arg('host', '127.0.0.1');
+// Which web pages may drive the bridge over WebSocket (blocks other websites from writing tags through your browser).
+const ORIGINS = String(arg('origin', 'https://alijafari21001-glitch.github.io')).split(',').map(s => s.trim()).filter(Boolean);
+const originOk = o => !o || o === 'null' || ORIGINS.includes(o) || /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(o);
+const esc = v => String(v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const MAP_FILE = path.resolve(arg('map', path.join(__dirname, 'openrung-map.json')));
 
 /* ---- tag table and Modbus address map ----
@@ -55,13 +62,13 @@ function setRegWord(addr, w){
 /* ---- WebSocket for the page, plus a small status page ---- */
 const server = http.createServer((req, res) => {
   if (req.url === '/map.json'){ res.writeHead(200, {'content-type':'application/json'}); res.end(JSON.stringify(map, null, 1)); return; }
-  const rows = (list, kind) => list.map((p, i) => { const t = tags.get(p); return `<tr><td>${kind === 'coil' ? i : i * 2}</td><td>${kind === 'coil' ? 'coil / discrete input' : 'holding / input register ' + (i * 2) + '-' + (i * 2 + 1)}</td><td>${p}</td><td>${t ? t.type : '?'}</td><td>${t ? t.value : ''}</td></tr>`; }).join('');
+  const rows = (list, kind) => list.map((p, i) => { const t = tags.get(p); return `<tr><td>${kind === 'coil' ? i : i * 2}</td><td>${kind === 'coil' ? 'coil / discrete input' : 'holding / input register ' + (i * 2) + '-' + (i * 2 + 1)}</td><td>${esc(p)}</td><td>${t ? esc(t.type) : '?'}</td><td>${t ? esc(t.value) : ''}</td></tr>`; }).join('');
   res.writeHead(200, {'content-type':'text/html; charset=utf-8'});
   res.end(`<!doctype html><title>OpenRung bridge</title><style>body{font:14px system-ui;margin:24px}td,th{padding:3px 10px;text-align:left;border-bottom:1px solid #ccc}</style>
 <h1>OpenRung bridge</h1><p>Page: ${page ? 'connected' : 'not connected'} · controller mode: ${mode || '?'} · Modbus TCP port ${MB_PORT} (unit id any) · OPC UA ${ua ? 'opc.tcp://localhost:' + UA_PORT + '/OpenRung' : 'off'}</p>
 <table><tr><th>Address</th><th>Modbus</th><th>Tag</th><th>Type</th><th>Value</th></tr>${rows(map.coils, 'coil')}${rows(map.regs, 'reg')}</table><p><a href="/map.json">map.json</a></p>`);
 });
-const wss = new WebSocketServer({server});
+const wss = new WebSocketServer({server, maxPayload: 4 * 1024 * 1024, verifyClient: info => { const ok = originOk(info.origin); if (!ok) console.warn('[bridge] refused a page from', info.origin); return ok; }});
 wss.on('connection', ws => {
   if (page && page.readyState === 1) page.close(1000, 'another page connected');
   page = ws; console.log('[bridge] OpenRung page connected');
@@ -77,7 +84,7 @@ wss.on('connection', ws => {
   });
   ws.on('close', () => { if (page === ws){ page = null; console.log('[bridge] page disconnected'); } });
 });
-server.listen(WS_PORT, () => console.log(`[bridge] waiting for the OpenRung page on ws://127.0.0.1:${WS_PORT}  (status: http://127.0.0.1:${WS_PORT}/)`));
+server.listen(WS_PORT, HOST, () => console.log(`[bridge] waiting for the OpenRung page on ws://127.0.0.1:${WS_PORT}  (status: http://127.0.0.1:${WS_PORT}/)`));
 
 /* ---- Modbus TCP server ---- */
 let mbServer = null;
@@ -91,7 +98,7 @@ try {
     getInputRegister: addr => regWord(addr),
     setRegister: (addr, v) => setRegWord(addr, v),
   };
-  mbServer = new ModbusRTU.ServerTCP(vector, {host:'0.0.0.0', port:MB_PORT, debug:false, unitID:255});
+  mbServer = new ModbusRTU.ServerTCP(vector, {host:HOST, port:MB_PORT, debug:false, unitID:255});
   mbServer.on('socketError', e => console.error('[modbus]', e.message));
   console.log(`[bridge] Modbus TCP server on port ${MB_PORT}`);
 } catch (e) { console.error('[bridge] Modbus TCP is off:', e.message); }

@@ -1,0 +1,11 @@
+name: Use it in my class
+description: Instructors who want to pilot the workbench
+labels: [pilot]
+body:
+  - type: input
+    id: school
+    attributes: { label: School and program }
+  - type: textarea
+    id: course
+    attributes: { label: What you teach, description: Course names, number of students, which labs you'd like to run }
+    validations: { required: true }

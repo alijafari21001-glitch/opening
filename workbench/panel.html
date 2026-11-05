@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' blob: https://cdn.jsdelivr.net; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' data: blob: https://*.supabase.co wss://*.supabase.co ws://localhost:* ws://127.0.0.1:* http://localhost:* http://127.0.0.1:*; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>OpenPanel</title>
 <style>
@@ -480,9 +481,11 @@ function draw(){
   for (const [pr, col] of [[DM.red, '#c62828'], [DM.black, '#111']]) if (pr && pr.panel === pn.id){ const [x, y] = tpos(pn, pr.at); const g = el('g', {transform:`translate(${x},${y})`, 'pointer-events':'none'}, sv); el('path', {d:'M0,0 l10,-22 l6,3 z', fill:col, stroke:'#fff', 'stroke-width':1}, g); el('circle', {cx:0, cy:0, r:6, fill:'none', stroke:col, 'stroke-width':2.5}, g); }
   status(pn);
 }
+/* every name, tag and id that reaches innerHTML goes through esc(): project files can come from anyone */
+const esc = v => String(v ?? '').replace(/[&<>"'`]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','`':'&#96;'}[c]));
 function drawTabs(){
   const nav = document.getElementById('tabs');
-  const html = PJ.panels.map((p, i) => `<button data-tab="${p.id}" class="${p.id === cur().id ? 'cur' : ''}" title="${p.name} (Ctrl+${i + 1}); double-click to rename">${p.name}${p.st && p.st.short ? ' ⚠' : ''}</button>`).join('') + '<button data-tab="+" title="Add an empty panel drawing">+ Panel</button>';
+  const html = PJ.panels.map((p, i) => `<button data-tab="${esc(p.id)}" class="${p.id === cur().id ? 'cur' : ''}" title="${esc(p.name)} (Ctrl+${i + 1}); double-click to rename">${esc(p.name)}${p.st && p.st.short ? ' ⚠' : ''}</button>`).join('') + '<button data-tab="+" title="Add an empty panel drawing">+ Panel</button>';
   if (nav.dataset.h === html) return;
   nav.dataset.h = html; nav.innerHTML = html;
   nav.querySelectorAll('[data-tab]').forEach(b => { b.onclick = () => { if (b.dataset.tab === '+') return addPanel(); PJ.cur = b.dataset.tab; pick = null; draw(); };
@@ -509,11 +512,11 @@ function drawLists(pn){
     io.push([p.name, t, tag || 'spare', dev, ws[0] ? wno(ws[0]) : '', tag ? ((p.t === 'plcin' ? inputs[tag] : outputs[tag]) ? 'ON' : 'off') : '']); });
   for (const p of pn.parts) if (p.t === 'tagno' || p.t === 'tagin'){ const ws = pn.wires.filter(w => w.a[0] === p.id || w.b[0] === p.id); io.push([p.name, p.t === 'tagno' ? 'robot DO' : 'robot DI', p.tag || '', T[p.t].name, ws.map(w => wno(w)).join(', '), (p.t === 'tagno' ? outputs[p.tag] : inputs[p.tag]) ? 'ON' : 'off']); }
   const bom = {}; for (const p of pn.parts) bom[T[p.t].name] = (bom[T[p.t].name] || []).concat(p.name);
-  document.getElementById('lists').innerHTML = `<h2 style="margin:0">${pn.name}</h2>
+  document.getElementById('lists').innerHTML = `<h2 style="margin:0">${esc(pn.name)}</h2>
     <p style="color:#5b6670">Generated from the drawing, so the lists always match it. PLC tags are the OpenRung tag names; the line and robots read the same tags.</p>
-    <h3>PLC I/O list</h3><table><tr><th>Card</th><th>Point</th><th>PLC tag</th><th>Field device</th><th>Wire</th><th>Now</th></tr>${io.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}</table>
-    <h3>Wire list</h3><table><tr><th>Wire no.</th><th>From</th><th>To</th><th>Conductor</th></tr>${rows.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td><span class="sw" style="background:${DCOL[r[3]]}"></span>${DNAME[r[3]]}</td></tr>`).join('')}</table>
-    <h3>Parts list</h3><table><tr><th>Qty</th><th>Part</th><th>Tags</th></tr>${Object.entries(bom).map(([k, v]) => `<tr><td>${v.length}</td><td>${k}</td><td>${v.join(', ')}</td></tr>`).join('')}</table>`;
+    <h3>PLC I/O list</h3><table><tr><th>Card</th><th>Point</th><th>PLC tag</th><th>Field device</th><th>Wire</th><th>Now</th></tr>${io.map(r => `<tr>${r.map(c => `<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</table>
+    <h3>Wire list</h3><table><tr><th>Wire no.</th><th>From</th><th>To</th><th>Conductor</th></tr>${rows.map(r => `<tr><td>${esc(r[0])}</td><td>${esc(r[1])}</td><td>${esc(r[2])}</td><td><span class="sw" style="background:${DCOL[r[3]]}"></span>${DNAME[r[3]]}</td></tr>`).join('')}</table>
+    <h3>Parts list</h3><table><tr><th>Qty</th><th>Part</th><th>Tags</th></tr>${Object.entries(bom).map(([k, v]) => `<tr><td>${v.length}</td><td>${esc(k)}</td><td>${esc(v.join(', '))}</td></tr>`).join('')}</table>`;
 }
 
 /* ================================================================ interaction */
@@ -559,13 +562,13 @@ function dup(){
 }
 function configure(p){
   const d = T[p.t], f = document.getElementById('dlgForm');
-  f.innerHTML = `<h3 style="margin:0 0 6px">${d.name}</h3><label>Name<input id="cfName" value="${p.name}"></label>
-    ${d.ref ? `<label>Coil or overload it follows<input id="cfRef" value="${p.ref || ''}" list="coils"></label><datalist id="coils">${cur().parts.filter(q => T[q.t].coil || q.t === 'ol3').map(q => `<option value="${q.name}">`).join('')}</datalist>` : ''}
+  f.innerHTML = `<h3 style="margin:0 0 6px">${esc(d.name)}</h3><label>Name<input id="cfName" value="${esc(p.name)}"></label>
+    ${d.ref ? `<label>Coil or overload it follows<input id="cfRef" value="${esc(p.ref)}" list="coils"></label><datalist id="coils">${cur().parts.filter(q => T[q.t].coil || q.t === 'ol3').map(q => `<option value="${esc(q.name)}">`).join('')}</datalist>` : ''}
     ${p.t === 'coil' || p.t === 'lamp' ? `<label>Rated voltage<select id="cfV"><option value="24"${(p.v || 24) === 24 ? ' selected' : ''}>24 V DC</option><option value="120"${p.v === 120 ? ' selected' : ''}>120 V AC</option></select></label>` : ''}
-    ${p.t === 'lamp' ? `<label>Lens colour<input id="cfCol" type="color" value="${p.color || '#2e7d32'}"></label>` : ''}
-    ${p.t === 'bus' ? `<label>Length (grid)<input id="cfLen" type="number" min="2" max="120" value="${p.len || 20}"></label>` : ''}
-    ${T[p.t].tagged ? `<label>PLC tag<input id="cfTag" value="${p.tag || ''}"></label>` : ''}
-    ${p.tags ? p.tags.map((t, i) => `<label>${p.t === 'plcin' ? 'I' : 'O'}${i} PLC tag<input data-i="${i}" value="${t}"></label>`).join('') : ''}
+    ${p.t === 'lamp' ? `<label>Lens colour<input id="cfCol" type="color" value="${/^#[0-9a-f]{6}$/i.test(p.color) ? p.color : '#2e7d32'}"></label>` : ''}
+    ${p.t === 'bus' ? `<label>Length (grid)<input id="cfLen" type="number" min="2" max="120" value="${+p.len || 20}"></label>` : ''}
+    ${T[p.t].tagged ? `<label>PLC tag<input id="cfTag" value="${esc(p.tag)}"></label>` : ''}
+    ${p.tags ? p.tags.map((t, i) => `<label>${p.t === 'plcin' ? 'I' : 'O'}${i} PLC tag<input data-i="${i}" value="${esc(t)}"></label>`).join('') : ''}
     <div style="display:flex;gap:6px;justify-content:flex-end;margin-top:8px"><button value="cancel">Cancel</button><button value="ok">OK</button></div>`;
   const dlg = document.getElementById('dlg');
   dlg.onclose = () => {
@@ -616,7 +619,7 @@ function setView(v){ view = v; document.body.classList.toggle('lists', v === 'li
 function meter(){
   const val = document.getElementById('lcdVal'), md = document.getElementById('lcdMode'), pr = document.getElementById('probes');
   document.querySelectorAll('[data-dm]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.dm === DM.mode)));
-  const nm = p => { if (!p) return '—'; const q = PJ.panels.find(x => x.id === p.panel); const part = q && byId(q, p.at[0]); return part ? `${part.name} : ${p.at[1]}` : '—'; };
+  const nm = p => { if (!p) return '—'; const q = PJ.panels.find(x => x.id === p.panel); const part = q && byId(q, p.at[0]); return part ? esc(`${part.name} : ${p.at[1]}`) : '—'; };
   pr.innerHTML = `<b class="r">Red</b> ${nm(DM.red)}<br><b class="k">Black</b> ${nm(DM.black)}`;
   if (!DM.red || !DM.black){ md.textContent = DM.mode === 'V' ? 'V AUTO' : 'Ω'; val.textContent = '----'; return; }
   if (DM.red.panel !== DM.black.panel){ md.textContent = 'different panels'; val.textContent = 'OL'; return; }
@@ -725,9 +728,28 @@ document.getElementById('zoom').onchange = e => { zoom = +e.target.value; draw()
 document.getElementById('bHelp').onclick = () => document.getElementById('help').showModal();
 const download = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify({format:'openpanel', version:2, project:JSON.parse(snap())}, null, 1)], {type:'application/json'})); a.download = 'panels.openpanel.json'; a.click(); };
 document.getElementById('bSave').onclick = download;
+/* A project from a file or from storage: keep only known part types, plain strings and finite numbers. */
+function clean(pj){
+  const str = v => typeof v === 'string' ? v.slice(0, 120) : v == null ? '' : String(v).slice(0, 120), num = v => Number.isFinite(+v) ? +v : 0;
+  const panels = (Array.isArray(pj.panels) ? pj.panels : []).slice(0, 50).map(pn => {
+    const parts = (Array.isArray(pn.parts) ? pn.parts : []).filter(p => p && T[p.t]).slice(0, 2000).map(p => {
+      const q = {id:str(p.id), t:p.t, x:num(p.x), y:num(p.y), name:str(p.name), on:!!p.on};
+      for (const k of ['ref', 'tag']) if (p[k] != null) q[k] = str(p[k]);
+      if (p.v != null) q.v = num(p.v) === 120 ? 120 : 24; if (p.len != null) q.len = Math.max(2, Math.min(120, num(p.len)));
+      if (typeof p.color === 'string' && /^#[0-9a-f]{6}$/i.test(p.color)) q.color = p.color;
+      if (Array.isArray(p.tags)) q.tags = p.tags.slice(0, 32).map(str); if (p.rot != null) q.rot = num(p.rot); if (p.flt) q.flt = 1;
+      return q; });
+    const ids = new Set(parts.map(p => p.id));
+    const wires = (Array.isArray(pn.wires) ? pn.wires : []).filter(w => w && Array.isArray(w.a) && Array.isArray(w.b) && ids.has(str(w.a[0])) && ids.has(str(w.b[0]))).slice(0, 5000)
+      .map(w => ({id:str(w.id), a:[str(w.a[0]), str(w.a[1])], b:[str(w.b[0]), str(w.b[1])], ...(w.flt ? {flt:1} : {})}));
+    return {id:str(pn.id) || 'Panel', name:str(pn.name) || 'Panel', parts, wires, n:num(pn.n) || 1};
+  });
+  if (!panels.length) throw new Error('no panels');
+  return {panels, cur:panels.some(p => p.id === pj.cur) ? pj.cur : panels[0].id};
+}
 document.getElementById('bOpen').onclick = () => document.getElementById('file').click();
 document.getElementById('file').onchange = async e => { const f = e.target.files[0]; if (!f) return; try { const j = JSON.parse(await f.text()); pushUndo();
-  if (j.project && j.project.panels) PJ = j.project; else if (j.M || j.parts){ const M = j.M || j; PJ.panels.push({id:'Imported', name:'Imported panel', parts:M.parts, wires:M.wires, n:999}); PJ.cur = 'Imported'; } else throw 0;
+  if (j.project && j.project.panels) PJ = clean(j.project); else if (j.M || j.parts){ const M = j.M || j; PJ.panels.push(clean({panels:[{id:'Imported', name:'Imported panel', parts:M.parts, wires:M.wires, n:999}]}).panels[0]); PJ.cur = 'Imported'; } else throw 0;
   tick(); save(); } catch(x){ flash('Not a panel file'); } e.target.value = ''; };
 window.addEventListener('keydown', e => {
   if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement || document.querySelector('dialog[open]')) return;
@@ -749,7 +771,7 @@ window.addEventListener('keydown', e => {
   else if (k === ' ' && sel && mode === 'op'){ e.preventDefault(); const p = byId(cur(), sel); if (p){ if (T[p.t].momentary){ p.on = true; tick(); setTimeout(() => { p.on = false; tick(); }, 400); } else operate(p); } }
   else if (k.startsWith('Arrow') && sel && mode === 'edit'){ const p = byId(cur(), sel); if (!p) return; e.preventDefault(); pushUndo(); p.x = Math.max(0, p.x + (k === 'ArrowLeft' ? -1 : k === 'ArrowRight' ? 1 : 0)); p.y = Math.max(1, p.y + (k === 'ArrowUp' ? -1 : k === 'ArrowDown' ? 1 : 0)); tick(); save(); }
 });
-try { const s = JSON.parse(localStorage.getItem(KEY) || 'null'); if (s && s.panels && s.panels.length) PJ = s; else PJ = pl01(); } catch(e){ PJ = pl01(); }
+try { const s = JSON.parse(localStorage.getItem(KEY) || 'null'); if (s && s.panels && s.panels.length) PJ = clean(s); else PJ = pl01(); } catch(e){ PJ = pl01(); }
 window.openPanel = {get project(){ return PJ; }, tick, pl01, inputs:() => inputs, outputs:() => outputs, setMode, DM, meter, resistance, select:id => { PJ.cur = id; draw(); }};
 document.getElementById('hint').textContent = HINT.op;
 meter();
