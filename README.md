@@ -39,7 +39,7 @@ python3 -m http.server 8090 & node tests/workbench.e2e.js   # needs Playwright
 
 ## Accounts
 
-Email sign-in (a 6-digit code, no password) uses [Supabase](https://supabase.com). Run `workbench/supabase/setup.sql` in a Supabase project and put its Project URL and anon public key in `WB_CLOUD` in `workbench/index.html`. Each user can only read and write their own save (row-level security). See [PRIVACY.md](PRIVACY.md).
+Sign-in with Google or with any email (a 6-digit code, no password) uses [Supabase](https://supabase.com). For Google, create an OAuth client in Google Cloud and enable the Google provider in Supabase (Authentication > Providers). Run `workbench/supabase/setup.sql` in a Supabase project and put its Project URL and anon public key in `WB_CLOUD` in `workbench/index.html`. Each user can only read and write their own save (row-level security). See [PRIVACY.md](PRIVACY.md).
 
 ## Contributing
 
