@@ -94,7 +94,7 @@ export class Pendant implements PendantApi {
     this.el.innerHTML = `
       <div class="tp-head">
         <span class="tp-brand">Teach Pendant</span>
-        <span class="tp-size"><button data-tpsize="-1" title="Make the pendant smaller (or drag its left edge)">−</button><button data-tpsize="0" title="Normal size">⟲</button><button data-tpsize="1" title="Make the pendant bigger">+</button></span>
+        <span class="tp-size" title="Pendant size 0-100 (or drag its left edge; double-click the edge for normal size)"><input type="range" min="0" max="100" step="1" data-tpsize aria-label="Pendant size"><output data-tpsizev></output><button data-tpmin title="Minimize the pendant (the view gets the space)">▁</button></span>
         <label class="tp-switch" title="Teach pendant enable switch"><input type="checkbox" id="tp-enable" checked> TP ON</label>
       </div>
       <div class="tp-screen">

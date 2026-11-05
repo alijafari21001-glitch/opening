@@ -396,12 +396,30 @@ let sensorT = 0;
       grip.addEventListener('pointermove', move); grip.addEventListener('pointerup', up);
     });
     grip.addEventListener('dblclick', () => apply(null));
-    pane.addEventListener('click', (e) => {
-      const b = (e.target as HTMLElement).closest('[data-tpsize]') as HTMLElement | null; if (!b) return;
-      const d = +b.dataset.tpsize!; apply(d === 0 ? null : cur() * (d < 0 ? 0.88 : 1.12));
-    });
-    let saved: string | null = null; try { saved = localStorage.getItem('opencell.tpW'); } catch { /* storage unavailable */ }
+    // size slider 0-100: 0 = smallest (240 px), 100 = largest (700 px)
+    const MINW = 240, MAXW = 700;
+    const slider = pane.querySelector('[data-tpsize]') as HTMLInputElement | null, sv = pane.querySelector('[data-tpsizev]') as HTMLOutputElement | null;
+    const sync = () => { if (!slider) return; const v = Math.round((cur() - MINW) / (MAXW - MINW) * 100); slider.value = String(Math.max(0, Math.min(100, v))); if (sv) sv.textContent = slider.value; };
+    slider?.addEventListener('input', () => { apply(MINW + (MAXW - MINW) * (+slider.value / 100)); if (sv) sv.textContent = slider.value; });
+    grip.addEventListener('pointerup', () => setTimeout(sync, 0));
+    grip.addEventListener('dblclick', () => setTimeout(sync, 0));
+    // minimize: the pendant folds to a slim "TEACH PENDANT" strip; click it to open again
+    const restore = document.createElement('button');
+    restore.className = 'tp-restore'; restore.textContent = 'TEACH PENDANT ▸'; restore.title = 'Show the teach pendant';
+    pane.appendChild(restore);
+    const setMin = (m: boolean) => {
+      app.classList.toggle('tp-min', m);
+      try { localStorage.setItem('opencell.tpMin', m ? '1' : '0'); } catch { /* storage unavailable */ }
+      window.dispatchEvent(new Event('resize'));
+      if (!m) setTimeout(sync, 0);
+    };
+    pane.querySelector('[data-tpmin]')?.addEventListener('click', () => setMin(true));
+    restore.addEventListener('click', () => setMin(false));
+    let saved: string | null = null, savedMin: string | null = null;
+    try { saved = localStorage.getItem('opencell.tpW'); savedMin = localStorage.getItem('opencell.tpMin'); } catch { /* storage unavailable */ }
     if (saved && +saved > 0) apply(+saved);
+    if (savedMin === '1') setMin(true);
+    setTimeout(sync, 0);
   }
 }
 
