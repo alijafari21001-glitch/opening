@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Automation Workbench</title>
+<meta name="description" content="PL-01 production line: PLC + HMI (OpenRung), robots and line (OpenCell) and electrical panels (OpenPanel) sharing live I/O.">
+<style>
+  :root { --bar:#1d2733; --bar2:#2a3644; --fg:#e8edf2; --muted:#9fb0c2; --accent:#f0c419; --ok:#43a047; --bg:#eef1f4; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#141a21; } }
+  :root[data-theme="dark"] { --bg:#141a21; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); font: 14px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  body { display: flex; flex-direction: column; }
+  header { display: flex; align-items: center; gap: 8px; padding: 0 10px; min-height: 44px; background: var(--bar); color: var(--fg); flex: none; flex-wrap: wrap; }
+  .brand { font-weight: 700; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+  .brand i { width: 18px; height: 18px; border-radius: 4px; background: var(--accent); display: inline-block; }
+  nav { display: flex; gap: 3px; flex-wrap: wrap; }
+  nav button, header select { background: transparent; color: var(--fg); border: 1px solid transparent; border-radius: 5px; padding: 5px 10px; font: inherit; cursor: pointer; }
+  header select { border-color: #45576b; background: var(--bar2); }
+  nav button:hover { background: var(--bar2); }
+  nav button[aria-pressed="true"] { background: var(--accent); color: #1d2733; font-weight: 600; }
+  nav kbd { font: 10px ui-monospace, monospace; opacity: .6; margin-left: 3px; }
+  .spacer { flex: 1; }
+  .bus { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; white-space: nowrap; }
+  .bus b { width: 9px; height: 9px; border-radius: 50%; background: #607080; display: inline-block; }
+  .bus.on b { background: var(--ok); } .bus.on { color: var(--fg); }
+  #acct { background: var(--bar2); color: var(--fg); border: 1px solid #45576b; border-radius: 5px; padding: 5px 10px; font: inherit; cursor: pointer; white-space: nowrap; max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+  #acct.on { border-color: var(--ok); }
+  dialog#acctDlg { border: 0; border-radius: 10px; padding: 18px 20px; width: min(380px, calc(100vw - 32px)); box-shadow: 0 10px 40px rgba(0,0,0,.3); font: 14px/1.45 system-ui, sans-serif; color: #1d2733; background: #fff; }
+  dialog#acctDlg::backdrop { background: rgba(10,15,20,.45); }
+  #acctDlg h3 { margin: 0 0 6px; } #acctDlg p { margin: 6px 0; color: #4a5560; }
+  #acctDlg input { width: 100%; box-sizing: border-box; font: inherit; padding: 8px 10px; border: 1px solid #c5ced8; border-radius: 6px; margin: 4px 0 8px; }
+  #acctDlg .row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; margin-top: 10px; }
+  #acctDlg button { font: inherit; padding: 7px 12px; border-radius: 6px; border: 1px solid #c5ced8; background: #fff; cursor: pointer; }
+  #acctDlg button.pri { background: #1d2733; color: #fff; border-color: #1d2733; }
+  #acctDlg .msg { min-height: 1.2em; font-size: 13px; color: #b3261e; }
+  #acctDlg .msg.ok { color: #2e7d32; }
+  #acctDlg details { margin-top: 10px; font-size: 13px; }
+  #focusbar { display: none; background: #fff8d6; color: #3a3000; font-size: 13px; padding: 4px 12px; border-bottom: 1px solid #e6d27a; }
+  #focusbar.on { display: block; }
+  main { flex: 1; position: relative; min-height: 0; }
+  iframe { position: absolute; border: 0; background: #fff; }
+  /* hidden frames stay rendered at 1 px so their loops keep running (the line, the panel solver, the PLC) */
+  iframe.off { left: 0; top: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+  iframe.full { inset: 0; width: 100%; height: 100%; }
+  main[data-mode="split"] #plc { left: 0; top: 0; width: 40%; height: 100%; border-right: 3px solid var(--bar); }
+  main[data-mode="split"] #cell { left: 40%; top: 0; width: 60%; height: 100%; }
+  main[data-mode="all"] #cell { left: 0; top: 0; width: 56%; height: 100%; border-right: 3px solid var(--bar); }
+  main[data-mode="all"] #panel { left: 56%; top: 0; width: 44%; height: 52%; border-bottom: 3px solid var(--bar); }
+  main[data-mode="all"] #plc { left: 56%; top: 52%; width: 44%; height: 48%; }
+  @media (max-width: 760px) {
+    .brand span, .bus span { display: none; }
+    main[data-mode="split"] #plc { width: 100%; height: 45%; border-right: 0; border-bottom: 3px solid var(--bar); }
+    main[data-mode="split"] #cell { left: 0; top: 45%; width: 100%; height: 55%; }
+    main[data-mode="all"] #cell { width: 100%; height: 40%; border-right: 0; border-bottom: 3px solid var(--bar); }
+    main[data-mode="all"] #panel { left: 0; top: 40%; width: 100%; height: 30%; }
+    main[data-mode="all"] #plc { left: 0; top: 70%; width: 100%; height: 30%; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><i></i><span>Automation Workbench</span></div>
+  <nav>
+    <button data-mode="cell" title="PL-01 line: both robots, conveyors, forklifts, CNCs (OpenCell) · Alt+1">Line + robots<kbd>1</kbd></button>
+    <button data-mode="plc" title="Ladder editor, virtual PLC and HMI (OpenRung) · Alt+2">PLC + HMI<kbd>2</kbd></button>
+    <button data-mode="panel" title="Electrical panels MCP-1, RCP-1, RCP-2 with DMM (OpenPanel) · Alt+3">Panels<kbd>3</kbd></button>
+    <button data-mode="all" title="Line, panel and PLC/HMI together · Alt+4">All<kbd>4</kbd></button>
+    <button data-mode="split" title="PLC and line side by side · Alt+5">Split<kbd>5</kbd></button>
+  </nav>
+  <select id="focus" title="Show one machine everywhere: its cabinet drawing, PLC routine and HMI screen. Clicking a robot or cabinet in the line does the same.">
+    <option value="">Focus: whole line</option>
+    <option value="R1">R1 Palletizer (RCP-1)</option>
+    <option value="R2">R2 Machine tender (RCP-2)</option>
+    <option value="MCP-1">MCP-1 Line control panel</option>
+  </select>
+  <div class="spacer"></div>
+  <button id="acct" title="Sign in with your email to save your cells, panels and PLC project to your account">Sign in</button>
+  <div class="bus" id="bus" title="Live I/O between the PLC, the line and the panels"><b></b><span id="busTxt">PLC not running</span></div>
+</header>
+<div id="focusbar"></div>
+<dialog id="acctDlg"><div id="acctBody"></div></dialog>
+<main id="main" data-mode="all">
+  <iframe id="cell" src="cell.html" title="OpenCell: PL-01 line and robots"></iframe>
+  <iframe id="panel" src="panel.html" title="OpenPanel electrical panels"></iframe>
+  <iframe id="plc" src="plc.html#autorun" title="OpenRung PLC and HMI"></iframe>
+</main>
+<script>
+  /* The shell relays controller traffic: OpenRung posts {openbus:'res'} (PLC values) to the line and the panels,
+     they post {openbus:'req'} (hello / tag writes) back. It also ties the three apps to one machine: clicking a robot or a
+     cabinet in the line sends {wb:'focus'}; the shell opens that cabinet's drawing, PLC routine and HMI screen. */
+  const plc = document.getElementById('plc'), cell = document.getElementById('cell'), panel = document.getElementById('panel'), main = document.getElementById('main');
+  const clients = [cell, panel];
+  const bus = document.getElementById('bus'), busTxt = document.getElementById('busTxt'), focusSel = document.getElementById('focus'), fbar = document.getElementById('focusbar');
+  const FOCUS = {
+    R1: {panel:'RCP-1', routine:'Palletizer_R1', screen:'Palletizer R1', robot:'R1', label:'R1 Palletizer (R-2000iC): cabinet RCP-1 · PLC routine Palletizer_R1 · HMI screen Palletizer R1'},
+    R2: {panel:'RCP-2', routine:'MachineTending_R2', screen:'Machine tending R2', robot:'R2', label:'R2 Machine tender (M-20iA on rail): cabinet RCP-2 · PLC routine MachineTending_R2 · HMI screen Machine tending R2'},
+    'MCP-1': {panel:'MCP-1', routine:'Line', screen:'Line overview', label:'MCP-1 Line control panel: conveyors M1, pallet lines M2, stack light · PLC routine Line · HMI screen Line overview'},
+  };
+  FOCUS['RCP-1'] = FOCUS.R1; FOCUS['RCP-2'] = FOCUS.R2;
+  let seen = 0, mode = '';
+  function focus(target, fromCell){
+    const f = FOCUS[target];
+    focusSel.value = f ? (f.robot || target) : '';
+    if (!f){ fbar.classList.remove('on'); return; }
+    panel.contentWindow.postMessage({wb:'panel', id:f.panel}, '*');
+    plc.contentWindow.postMessage({wb:'view', routine:f.routine, screen:f.screen}, '*');
+    if (f.robot && !fromCell) cell.contentWindow.postMessage({wb:'select', target:f.robot}, '*');
+    fbar.textContent = 'Focus: ' + f.label;
+    fbar.classList.add('on');
+    if (main.dataset.mode === 'cell' || main.dataset.mode === 'split') setMode('all');
+  }
+  window.addEventListener('message', e => {
+    const d = e.data; if (!d) return;
+    if (d.wb === 'focus' && e.source === cell.contentWindow && typeof d.target === 'string'){ focus(d.target, true); return; }
+    if (!d.openbus) return;
+    if (e.source === plc.contentWindow && d.openbus === 'res'){
+      for (const f of clients) f.contentWindow.postMessage(d, '*');
+      if (d.msg && d.msg.op === 'values'){ seen = performance.now(); mode = d.msg.mode || ''; }
+    } else if (clients.some(f => e.source === f.contentWindow) && d.openbus === 'req'){
+      plc.contentWindow.postMessage(d, '*');
+    }
+  });
+  setInterval(() => {
+    const on = performance.now() - seen < 1500;
+    bus.classList.toggle('on', on);
+    busTxt.textContent = on ? 'PLC ' + (mode === 'RUN' ? 'running' : mode === 'FAULT' ? 'faulted' : 'in Program mode') + ' · I/O live' : 'PLC starting…';
+  }, 300);
+  function setMode(m){
+    main.dataset.mode = m;
+    for (const f of [cell, panel, plc]){
+      const show = m === f.id || (m === 'split' && f.id !== 'panel') || m === 'all';
+      f.className = !show ? 'off' : (m === f.id ? 'full' : '');
+    }
+    document.querySelectorAll('nav button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === m)));
+    try { localStorage.setItem('workbench.mode2', m); } catch(e){}
+    setTimeout(() => { try { cell.contentWindow.dispatchEvent(new Event('resize')); } catch(e){} }, 60);
+  }
+  document.querySelectorAll('nav button').forEach(b => b.onclick = () => setMode(b.dataset.mode));
+  focusSel.onchange = () => focus(focusSel.value);
+  window.addEventListener('keydown', e => { if (e.altKey && /^[1-5]$/.test(e.key)){ e.preventDefault(); setMode(['cell','plc','panel','all','split'][+e.key - 1]); } });
+  /* ---------- Accounts: email sign-in with a 6-digit code (Supabase Auth) and one cloud save per user.
+     The save holds every opencell.* / openpanel.* / openrung.* entry of this site's localStorage (cells, panels, PLC projects).
+     Fill WB_CLOUD after creating the Supabase project; the anon key is public by design (row-level security protects the data). */
+  const WB_CLOUD = { url: '', key: '' };
+  const ACC = { sb: null, user: null, step: 'email', email: '', dirty: false, last: '' };
+  const accBtn = document.getElementById('acct'), accDlg = document.getElementById('acctDlg'), accBody = document.getElementById('acctBody');
+  const ls = { get(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }, set(k, v){ try { localStorage.setItem(k, v); } catch(e){} } };
+  function cloudCfg(){ if (WB_CLOUD.url && WB_CLOUD.key) return WB_CLOUD; try { const c = JSON.parse(ls.get('workbench.cloud') || 'null'); if (c && c.url && c.key) return c; } catch(e){} return null; }
+  const SAVE_KEYS = /^(opencell|openpanel|openrung)\./;
+  function collect(){ const o = {}; try { for (let i = 0; i < localStorage.length; i++){ const k = localStorage.key(i); if (SAVE_KEYS.test(k)) o[k] = localStorage.getItem(k); } } catch(e){} return o; }
+  function loadLib(){ return new Promise((ok, bad) => { if (window.supabase) return ok(); const s = document.createElement('script'); s.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js'; s.onload = ok; s.onerror = () => bad(new Error('Could not load the sign-in library (offline or blocked)')); document.head.appendChild(s); }); }
+  async function client(){ if (ACC.sb) return ACC.sb; const c = cloudCfg(); if (!c) return null; await loadLib(); ACC.sb = window.supabase.createClient(c.url, c.key, { auth: { persistSession: true, storageKey: 'workbench.auth' } }); return ACC.sb; }
+  const esc = t => String(t).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  function setMsg(t, ok){ const m = accBody.querySelector('.msg'); if (m){ m.textContent = t || ''; m.classList.toggle('ok', !!ok); } }
+  function render(){
+    accBtn.textContent = ACC.user ? ACC.user.email : 'Sign in'; accBtn.classList.toggle('on', !!ACC.user);
+    if (!cloudCfg()){
+      accBody.innerHTML = `<h3>Sign in</h3><p>Email sign-in isn't switched on for this copy yet. The owner pastes the Supabase Project URL and anon public key here once (or in WB_CLOUD in index.html).</p>
+        <input id="aUrl" placeholder="https://xxxx.supabase.co"><input id="aKey" placeholder="anon public key"><div class="msg"></div>
+        <div class="row"><button data-a="close">Close</button><button class="pri" data-a="cfg">Save settings</button></div>`;
+    } else if (ACC.user){
+      accBody.innerHTML = `<h3>Your account</h3><p>Signed in as <b>${esc(ACC.user.email)}</b>. Your cells, panels and PLC projects save to your account every minute while you work${ACC.last ? ` (last saved ${esc(ACC.last)})` : ''}.</p><div class="msg"></div>
+        <div class="row"><button data-a="out">Sign out</button><button data-a="pull" title="Replace what is in this browser with your saved work">Load my saved work</button><button class="pri" data-a="push">Save now</button></div>`;
+    } else if (ACC.step === 'code'){
+      accBody.innerHTML = `<h3>Check your email</h3><p>We sent a 6-digit code to <b>${esc(ACC.email)}</b>. Enter it here.</p>
+        <input id="aCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456"><div class="msg"></div>
+        <div class="row"><button data-a="back">Use another email</button><button class="pri" data-a="verify">Sign in</button></div>`;
+    } else {
+      accBody.innerHTML = `<h3>Sign in</h3><p>Enter your email and we'll send you a 6-digit code. No password needed. New emails get an account automatically.</p>
+        <input id="aEmail" type="email" autocomplete="email" placeholder="you@school.edu" value="${esc(ACC.email)}"><div class="msg"></div>
+        <div class="row"><button data-a="close">Close</button><button class="pri" data-a="send">Email me a code</button></div>`;
+    }
+    const f = accBody.querySelector('input'); if (f && accDlg.open) setTimeout(() => f.focus(), 30);
+  }
+  async function push(quiet){
+    const sb = await client(); if (!sb || !ACC.user) return;
+    const { error } = await sb.from('workbench_saves').upsert({ user_id: ACC.user.id, data: collect(), updated_at: new Date().toISOString() });
+    if (error){ if (!quiet) setMsg('Save failed: ' + error.message); return; }
+    ACC.dirty = false; ACC.last = new Date().toLocaleTimeString(); if (!quiet){ render(); setMsg('Saved to your account', true); }
+  }
+  async function pull(){
+    const sb = await client(); if (!sb || !ACC.user) return;
+    const { data, error } = await sb.from('workbench_saves').select('data').eq('user_id', ACC.user.id).maybeSingle();
+    if (error) return setMsg('Load failed: ' + error.message);
+    if (!data) return setMsg('Nothing saved in your account yet');
+    for (const [k, v] of Object.entries(data.data || {})) ls.set(k, v);
+    location.reload();
+  }
+  accBody.addEventListener('click', async e => {
+    const a = e.target.closest('[data-a]'); if (!a) return; const act = a.dataset.a;
+    try {
+      if (act === 'close') return accDlg.close();
+      if (act === 'cfg'){ const url = accBody.querySelector('#aUrl').value.trim(), key = accBody.querySelector('#aKey').value.trim(); if (!/^https:\/\/.+/.test(url) || key.length < 20) return setMsg('Paste the Project URL (https://…) and the anon public key'); ls.set('workbench.cloud', JSON.stringify({url, key})); ACC.sb = null; return render(); }
+      if (act === 'send'){ const em = accBody.querySelector('#aEmail').value.trim(); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) return setMsg('Enter a valid email'); a.disabled = true; setMsg('Sending…', true); const sb = await client(); const { error } = await sb.auth.signInWithOtp({ email: em, options: { shouldCreateUser: true } }); a.disabled = false; if (error) return setMsg(error.message); ACC.email = em; ACC.step = 'code'; return render(); }
+      if (act === 'back'){ ACC.step = 'email'; return render(); }
+      if (act === 'verify'){ const code = accBody.querySelector('#aCode').value.trim(); if (!/^\d{6}$/.test(code)) return setMsg('Enter the 6 digits from the email'); a.disabled = true; const sb = await client(); const { data, error } = await sb.auth.verifyOtp({ email: ACC.email, token: code, type: 'email' }); a.disabled = false; if (error) return setMsg(error.message); ACC.user = data.user; ACC.step = 'email'; render(); return firstSync(); }
+      if (act === 'out'){ const sb = await client(); await push(true); await sb.auth.signOut(); ACC.user = null; render(); return; }
+      if (act === 'push') return push(false);
+      if (act === 'pull'){ if (confirm('Replace the work in this browser with the copy saved in your account?')) return pull(); }
+    } catch(err){ a.disabled = false; setMsg(err.message || String(err)); }
+  });
+  // first sign-in on this browser: if the account already has a save, offer to load it; otherwise upload what is here
+  async function firstSync(){
+    const sb = await client(); const { data } = await sb.from('workbench_saves').select('updated_at').eq('user_id', ACC.user.id).maybeSingle();
+    if (data && confirm('Your account has saved work from ' + new Date(data.updated_at).toLocaleString() + '. Load it here? (Cancel keeps this browser\'s work and saves it to your account.)')) return pull();
+    await push(false);
+  }
+  accBtn.onclick = () => { render(); accDlg.showModal(); render(); };
+  accDlg.addEventListener('click', e => { if (e.target === accDlg) accDlg.close(); });
+  window.addEventListener('storage', e => { if (e.key && SAVE_KEYS.test(e.key)) ACC.dirty = true; });
+  let snapPrev = '';
+  setInterval(() => { if (!ACC.user) return; const s = JSON.stringify(collect()); if (s !== snapPrev){ snapPrev = s; ACC.dirty = true; } if (ACC.dirty) push(true); }, 60000);
+  window.addEventListener('pagehide', () => { if (ACC.user && ACC.dirty) push(true); });
+  (async () => { try { const sb = await client(); if (!sb) return render(); const { data } = await sb.auth.getSession(); ACC.user = data.session ? data.session.user : null; snapPrev = JSON.stringify(collect()); render(); } catch(e){ render(); } })();
+  window.workbenchAccount = ACC;
+
+  let start = 'all'; try { start = localStorage.getItem('workbench.mode2') || 'all'; } catch(e){}
+  setMode(start);
+</script>
+</body>
+</html>
