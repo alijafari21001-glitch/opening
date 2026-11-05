@@ -370,6 +370,41 @@ const sensors = new SensorSim(state, viewer.cell, plcBus, () => [...(demo?.root.
 let sensorT = 0;
 
 // ---------------------------------------------------------------- PLC + robot demo cell
+// ---------------------------------------------------------------- resizable teach pendant (width saved per browser)
+{
+  const pane = document.querySelector('#pendant') as HTMLElement | null, app = document.querySelector('#app') as HTMLElement | null;
+  if (pane && app) {
+    const base = () => (matchMedia('(max-width: 1100px)').matches ? 360 : 410);
+    const apply = (w: number | null) => {
+      if (w === null) { app.style.removeProperty('--tp-w'); pane.style.removeProperty('--tp-z'); try { localStorage.removeItem('opencell.tpW'); } catch { /* storage unavailable */ } }
+      else {
+        w = Math.round(Math.max(240, Math.min(700, w)));
+        app.style.setProperty('--tp-w', w + 'px'); pane.style.setProperty('--tp-z', (w / base()).toFixed(3));
+        try { localStorage.setItem('opencell.tpW', String(w)); } catch { /* storage unavailable */ }
+      }
+      window.dispatchEvent(new Event('resize'));
+    };
+    const cur = () => pane.getBoundingClientRect().width;
+    const grip = document.createElement('div');
+    grip.className = 'tp-grip'; grip.title = 'Drag to resize the teach pendant (double-click: normal size)';
+    pane.appendChild(grip);
+    grip.addEventListener('pointerdown', (e) => {
+      e.preventDefault(); grip.setPointerCapture(e.pointerId); grip.classList.add('on');
+      const x0 = e.clientX, w0 = cur();
+      const move = (ev: PointerEvent) => apply(w0 + (x0 - ev.clientX));
+      const up = () => { grip.classList.remove('on'); grip.removeEventListener('pointermove', move); grip.removeEventListener('pointerup', up); };
+      grip.addEventListener('pointermove', move); grip.addEventListener('pointerup', up);
+    });
+    grip.addEventListener('dblclick', () => apply(null));
+    pane.addEventListener('click', (e) => {
+      const b = (e.target as HTMLElement).closest('[data-tpsize]') as HTMLElement | null; if (!b) return;
+      const d = +b.dataset.tpsize!; apply(d === 0 ? null : cur() * (d < 0 ? 0.88 : 1.12));
+    });
+    let saved: string | null = null; try { saved = localStorage.getItem('opencell.tpW'); } catch { /* storage unavailable */ }
+    if (saved && +saved > 0) apply(+saved);
+  }
+}
+
 let demo: DemoSim | null = null;
 if (state.world.sim === 'demo') {
   demo = new DemoSim(state, plcBus, viewer.scene, () => viewer.flangeOf(0));

@@ -11,7 +11,7 @@ html, body { margin: 0; height: 100%; background: var(--bg); overflow: hidden; }
 button { font: inherit; cursor: pointer; }
 #app {
   display: grid; height: 100%;
-  grid-template: "top top top" 40px "browser view pendant" 1fr "run run run" 140px / 240px 1fr 410px;
+  grid-template: "top top top" 40px "browser view pendant" 1fr "run run run" 140px / 240px 1fr var(--tp-w, 410px);
 }
 #topbar { grid-area: top; display: flex; align-items: center; gap: 10px; padding: 0 12px; background: #1d2733; color: #fff; }
 #topbar .brand { font-weight: 700; font-size: 15px; display: flex; align-items: center; gap: 8px; }
@@ -81,6 +81,14 @@ button { font: inherit; cursor: pointer; }
 
 /* Teach pendant */
 #pendant { grid-area: pendant; background: var(--case); padding: 8px 10px 10px; overflow: auto; color: #e9edf1; display: flex; flex-direction: column; gap: 7px; }
+/* resizable pendant: drag the left edge or use − / +; the keys and screen scale with the width */
+#pendant { position: relative; }
+#pendant > :not(.tp-grip) { zoom: var(--tp-z, 1); }
+.tp-grip { position: absolute; left: 0; top: 0; bottom: 0; width: 7px; cursor: ew-resize; z-index: 3; }
+.tp-grip:hover, .tp-grip.on { background: rgba(140, 196, 255, 0.35); }
+.tp-size { display: inline-flex; gap: 2px; margin-left: auto; margin-right: 8px; }
+.tp-size button { background: #2b3138; color: #cfd6dd; border: 1px solid #1e2226; border-radius: 4px; width: 22px; height: 20px; padding: 0; font-size: 12px; line-height: 1; }
+.tp-size button:hover { background: #3c444d; }
 .tp-head { display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: #aeb8c2; }
 .tp-brand { text-transform: uppercase; letter-spacing: .08em; }
 .tp-switch { display: flex; align-items: center; gap: 5px; background: #1c2024; border: 1px solid #111; border-radius: 12px; padding: 2px 10px 2px 6px; cursor: pointer; color: #e9edf1; }
@@ -155,7 +163,7 @@ dialog#help kbd { background: #eef1f4; border: 1px solid #ccd3da; border-radius:
 
 /* medium width (e.g. split view next to the PLC): cell browser drops under the 3D view */
 @media (min-width: 641px) and (max-width: 1100px) {
-  #app { grid-template: "top top" 40px "view pendant" 1fr "browser pendant" 190px "run run" 140px / 1fr 360px; }
+  #app { grid-template: "top top" 40px "view pendant" 1fr "browser pendant" 190px "run run" 140px / 1fr var(--tp-w, 360px); }
   #topbar .brand small, #topbar .views .lbl { display: none; }
   #topbar { overflow-x: auto; } #topbar button { white-space: nowrap; }
 }
