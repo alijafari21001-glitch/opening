@@ -10,7 +10,7 @@ jobs:
     defaults: { run: { working-directory: opencell } }
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with: { node-version: 22, cache: npm, cache-dependency-path: opencell/package-lock.json }
       - run: npm ci
       - run: npx tsc --noEmit -p .
@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with: { node-version: 22 }
       - run: node --check bridge/openrung-bridge.js
       - name: No secrets or service-role keys in the repo
