@@ -19,7 +19,10 @@ Independent clean-room project; not affiliated with Rockwell Automation.
 - A second tab connects to the same controller. Add `#hmi` to the link to open straight into the operator screens.
 - **I/O Configuration** holds a virtual rack (DI16, DO16, AI4, AO4 cards) and process models (a conveyor with photo-eyes, a tank with fill and drain) that act as the machine.
 - **Project** saves and opens `.json` project files and keeps a recent-projects list; work autosaves in the browser.
-- Import L5X: routine, program or controller exports. Export: one ladder or ST routine with its tags and data types as context.
+- Import L5X: routine, program, Add-On Instruction, data type or controller exports.
+- Export L5X for Studio 5000: a routine, a program, an Add-On Instruction or a data type (UDT). **School format** (on by default, v30) writes each UDT, AOI and routine as its own file, the way Studio 5000 imports them reliably: import the data types first, then the AOIs, then the routine (right-click the program, Import Routine) and call it with a JSR. **Save all files** downloads them numbered in that order. Pick a newer Studio 5000 version in the dialog if your PC has one.
+- HMI security: users with security codes (A to P), a Login / logout object, and a **Visible when** expression on any object, FactoryTalk style, e.g. `CurrentUserHasCode(B) OR CurrentUserHasCode(C)` or `{[PLC]Mode_Auto} == 0`. Also a rotating mixer object and alarm history (in, out, ack with times).
+- `S:FS` (first scan) works in rungs, so default values can be set in logic.
 
 ## What it covers
 - Instructions: XIC XIO ONS OTE OTL OTU OSR OSF TON TOF RTO CTU CTD RES EQU NEQ GRT GEQ LES LEQ LIM MEQ MOV ADD SUB MUL DIV MOD CPT CLR COP FLL SQO JSR SBR RET NOP AFI

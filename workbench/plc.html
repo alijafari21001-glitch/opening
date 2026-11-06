@@ -270,6 +270,11 @@ button:disabled{opacity:.45;cursor:default}
 .hbar .fill{width:100%;background:var(--hc)}
 .hbar b{font:600 11px var(--f-mono)}
 .htank{height:100%;display:flex;flex-direction:column;gap:3px}
+.hrotor{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}.hrotor svg{flex:1;min-height:0}
+.rt-ring{fill:var(--box);stroke:var(--line);stroke-width:2}.rt-hub{fill:var(--fg)}.rt-blade{fill:var(--hc,#8a96a3)}
+.hlogin{height:100%;display:flex;flex-direction:column;gap:3px;padding:4px;border:1px solid var(--line);border-radius:7px;background:var(--box)}.hlogin b i{font-weight:400;opacity:.7}.hlogin .lb{display:flex;gap:6px;flex:1}.hlogin .lb .hbtn{flex:1;height:auto}
+.ho.hasvis{outline:1px dashed var(--c-amber,#d4a20a);outline-offset:1px}
+.halarms tr.hist td{opacity:.75;font-size:12px}
 .haxis{height:100%;display:flex;flex-direction:column;justify-content:space-between;gap:2px;padding:6px 10px;border-radius:6px;background:var(--hmi-num);border:1px solid var(--line);overflow:hidden}
 .haxis .axhd{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
 .haxis .axhd b{font:600 17px/1.1 var(--f-mono);font-variant-numeric:tabular-nums}
@@ -373,6 +378,7 @@ button:disabled{opacity:.45;cursor:default}
 
 <script type="text/plain" id="sampleL5X"></script>
 <script type="application/json" id="startProject">{"format":"openrung-project","version":2,"savedAt":"2026-11-05T13:11:59.314Z","project":{"name":"PL01_Line","rev":"32.00","udts":[],"aois":[],"tags":[{"name":"EStop_OK","type":"BOOL","dim":0,"description":"MCP-1 DI I0: line E-stop ES1 healthy","value":0},{"name":"Line_Start_PB","type":"BOOL","dim":0,"description":"MCP-1 DI I1: PB1 START","value":0},{"name":"Line_Stop_PB","type":"BOOL","dim":0,"description":"MCP-1 DI I2: PB2 STOP (NC, 1 = not pressed)","value":0},{"name":"Conv_Running","type":"BOOL","dim":0,"description":"MCP-1 DI I3: M1 aux, case conveyors running","value":0},{"name":"OL_OK","type":"BOOL","dim":0,"description":"MCP-1 DI I4: OL1 + OL2 95-96 closed","value":0},{"name":"Pal_Running","type":"BOOL","dim":0,"description":"MCP-1 DI I5: M2 aux, pallet lines running","value":0},{"name":"Reset_PB","type":"BOOL","dim":0,"description":"MCP-1 DI I6: PB3 RESET","value":0},{"name":"Conv_Run","type":"BOOL","dim":0,"description":"MCP-1 DO O0: contactor M1 coil","value":0},{"name":"Pal_Run","type":"BOOL","dim":0,"description":"MCP-1 DO O1: contactor M2 coil","value":0},{"name":"Light_Green","type":"BOOL","dim":0,"description":"MCP-1 DO O2: stack light green","value":0},{"name":"Light_Amber","type":"BOOL","dim":0,"description":"MCP-1 DO O3: stack light amber","value":0},{"name":"Light_Red","type":"BOOL","dim":0,"description":"MCP-1 DO O4: stack light red","value":0},{"name":"R1_Safety_OK","type":"BOOL","dim":0,"description":"RCP-1 DI I0: pendant E-stop and fence gate closed","value":0},{"name":"R1_Servo_On","type":"BOOL","dim":0,"description":"RCP-1 DI I1: K1 aux, palletizer servo power on","value":0},{"name":"R1_Enable","type":"BOOL","dim":0,"description":"RCP-1 DO O0: K1 servo contactor coil","value":0},{"name":"R1_Lamp_Run","type":"BOOL","dim":0,"description":"RCP-1 DO O1: SERVO RUN lamp","value":0},{"name":"R1_Running","type":"BOOL","dim":0,"description":"RCP-1 DI I2: robot DO program running (wired)","value":0},{"name":"R1_Fault","type":"BOOL","dim":0,"description":"RCP-1 DI I3: robot DO fault (wired)","value":0},{"name":"R1_Run_Cmd","type":"BOOL","dim":0,"description":"RCP-1 DO O2: robot UI start / enable","value":0},{"name":"R1_DO_Running","type":"BOOL","dim":0,"description":"Robot output (OpenCell): palletizer program running","value":0},{"name":"R1_DO_Fault","type":"BOOL","dim":0,"description":"Robot output (OpenCell): palletizer alarm","value":0},{"name":"R1_DI_Run","type":"BOOL","dim":0,"description":"Robot input (OpenPanel): UI enable seen at the robot","value":0},{"name":"R1_Servo_Tmr","type":"TIMER","dim":0,"description":"K1 did not pull in","value":{"PRE":0,"ACC":0,"EN":0,"TT":0,"DN":0}},{"name":"R1_Servo_Fault","type":"BOOL","dim":0,"description":"RCP-1 K1 commanded but no feedback","value":0},{"name":"R2_Safety_OK","type":"BOOL","dim":0,"description":"RCP-2 DI I0: pendant E-stop and fence gate closed","value":0},{"name":"R2_Servo_On","type":"BOOL","dim":0,"description":"RCP-2 DI I1: K1 aux, machine tender servo power on","value":0},{"name":"R2_Enable","type":"BOOL","dim":0,"description":"RCP-2 DO O0: K1 servo contactor coil","value":0},{"name":"R2_Lamp_Run","type":"BOOL","dim":0,"description":"RCP-2 DO O1: SERVO RUN lamp","value":0},{"name":"R2_Running","type":"BOOL","dim":0,"description":"RCP-2 DI I2: robot DO program running (wired)","value":0},{"name":"R2_Fault","type":"BOOL","dim":0,"description":"RCP-2 DI I3: robot DO fault (wired)","value":0},{"name":"R2_Run_Cmd","type":"BOOL","dim":0,"description":"RCP-2 DO O2: robot UI start / enable","value":0},{"name":"R2_DO_Running","type":"BOOL","dim":0,"description":"Robot output (OpenCell): machine tender program running","value":0},{"name":"R2_DO_Fault","type":"BOOL","dim":0,"description":"Robot output (OpenCell): machine tender alarm","value":0},{"name":"R2_DI_Run","type":"BOOL","dim":0,"description":"Robot input (OpenPanel): UI enable seen at the robot","value":0},{"name":"R2_Servo_Tmr","type":"TIMER","dim":0,"description":"K1 did not pull in","value":{"PRE":0,"ACC":0,"EN":0,"TT":0,"DN":0}},{"name":"R2_Servo_Fault","type":"BOOL","dim":0,"description":"RCP-2 K1 commanded but no feedback","value":0},{"name":"HMI_Start","type":"BOOL","dim":0,"description":"HMI / line panel Start","value":0},{"name":"HMI_Stop","type":"BOOL","dim":0,"description":"HMI Stop","value":0},{"name":"HMI_New_Order","type":"BOOL","dim":0,"description":"HMI New order","value":0},{"name":"Safety_OK","type":"BOOL","dim":0,"description":"E-stop and overloads healthy","value":0},{"name":"Line_Run","type":"BOOL","dim":0,"description":"Line running (seal-in)","value":0},{"name":"New_Order","type":"BOOL","dim":0,"description":"Start a new order (read by OpenCell)","value":0},{"name":"Fault","type":"BOOL","dim":0,"description":"Any fault","value":0},{"name":"Blink","type":"TIMER","dim":0,"description":"Stack light flasher","value":{"PRE":0,"ACC":0,"EN":0,"TT":0,"DN":0}},{"name":"Blink_On","type":"BOOL","dim":0,"description":"Flasher bit","value":0},{"name":"Jam_Tmr","type":"TIMER","dim":0,"description":"Conveyor commanded but M1 aux missing","value":{"PRE":0,"ACC":0,"EN":0,"TT":0,"DN":0}},{"name":"Order_Pallets","type":"DINT","dim":0,"description":"Pallets in the order (0 = run continuously)","value":6},{"name":"Cases_Per_Pallet","type":"DINT","dim":0,"description":"Cases per pallet (R[8] on the palletizer)","value":12},{"name":"Parts_Per_Case","type":"DINT","dim":0,"description":"Finished parts packed per case","value":2},{"name":"CNC_Cycle","type":"DINT","dim":0,"description":"VMC cycle time, s","value":28},{"name":"Case_At_Pick","type":"BOOL","dim":0,"description":"Case at the palletizer pick (robot DI[1]) (from OpenCell)","value":0},{"name":"Pallet_A_Ready","type":"BOOL","dim":0,"description":"Pallet A at the station (DI[2]) (from OpenCell)","value":0},{"name":"Pallet_B_Ready","type":"BOOL","dim":0,"description":"Pallet B at the station (DI[3]) (from OpenCell)","value":0},{"name":"VMC1_Running","type":"BOOL","dim":0,"description":"VMC1 cutting (from OpenCell)","value":0},{"name":"VMC2_Running","type":"BOOL","dim":0,"description":"VMC2 cutting (from OpenCell)","value":0},{"name":"VMC3_Running","type":"BOOL","dim":0,"description":"VMC3 cutting (from OpenCell)","value":0},{"name":"VMC1_Door_Open","type":"BOOL","dim":0,"description":"VMC1 door open (from OpenCell)","value":0},{"name":"VMC2_Door_Open","type":"BOOL","dim":0,"description":"VMC2 door open (from OpenCell)","value":0},{"name":"VMC3_Door_Open","type":"BOOL","dim":0,"description":"VMC3 door open (from OpenCell)","value":0},{"name":"Wrapper_Busy","type":"BOOL","dim":0,"description":"Stretch wrapper running (from OpenCell)","value":0},{"name":"Order_Done","type":"BOOL","dim":0,"description":"All order pallets are on the truck (from OpenCell)","value":0},{"name":"Disp_A_Count","type":"DINT","dim":0,"description":"Empty pallets in dispenser A (from OpenCell)","value":0},{"name":"Disp_B_Count","type":"DINT","dim":0,"description":"Empty pallets in dispenser B (from OpenCell)","value":0},{"name":"Cases_Done","type":"DINT","dim":0,"description":"Cases palletized (from OpenCell)","value":0},{"name":"Parts_Done","type":"DINT","dim":0,"description":"Parts finished by the VMCs (from OpenCell)","value":0},{"name":"Parts_Packed","type":"DINT","dim":0,"description":"Parts packed into cases (from OpenCell)","value":0},{"name":"Pallets_Wrapped","type":"DINT","dim":0,"description":"Pallets wrapped this order (from OpenCell)","value":0},{"name":"Pallets_Loaded","type":"DINT","dim":0,"description":"Pallets on the truck this order (from OpenCell)","value":0},{"name":"Trailer_Count","type":"DINT","dim":0,"description":"Pallets in the trailer (from OpenCell)","value":0},{"name":"Return_Parts","type":"DINT","dim":0,"description":"Parts on the return belt (from OpenCell)","value":0}],"programs":[{"name":"MainProgram","tags":[],"routines":[{"name":"MainRoutine","type":"RLL","rungs":[{"comment":"PL-01 line. Each routine matches one cabinet drawing in the Panel tab: Safety + Line = MCP-1, Palletizer_R1 = RCP-1, MachineTending_R2 = RCP-2.","text":"JSR(Safety,0)JSR(Line,0)JSR(Palletizer_R1,0)JSR(MachineTending_R2,0)JSR(Order,0);"}]},{"name":"Safety","type":"RLL","rungs":[{"comment":"MCP-1: line E-stop ES1 (DI I0) and both motor overloads OL1/OL2 (DI I4) must be healthy.","text":"XIC(EStop_OK)XIC(OL_OK)OTE(Safety_OK);"},{"comment":"Conveyor contactor M1 commanded but its aux contact (DI I3) never closes: jam / contactor fault after 2 s.","text":"XIC(Conv_Run)XIO(Conv_Running)TON(Jam_Tmr,2000,0);"},{"comment":"Any fault.","text":"[XIO(Safety_OK) ,XIC(Jam_Tmr.DN) ,XIC(R1_Fault) ,XIC(R2_Fault) ,XIC(R1_Servo_Fault) ,XIC(R2_Servo_Fault) ]OTE(Fault);"},{"comment":"0.5 s flasher for the stack light.","text":"XIO(Blink.DN)TON(Blink,500,0);"},{"comment":"","text":"XIC(Blink.DN)XIO(Blink_On)OTL(Blink_On);"},{"comment":"","text":"XIC(Blink.DN)XIC(Blink_On)XIO(Blink.EN)OTU(Blink_On);"}]},{"name":"Line","type":"RLL","rungs":[{"comment":"Start (PB1 or HMI) / stop (PB2 is NC, or HMI) seal-in. Drops on any safety fault.","text":"[XIC(Line_Start_PB) ,XIC(HMI_Start) ,XIC(Line_Run) ]XIC(Line_Stop_PB)XIO(HMI_Stop)XIC(Safety_OK)XIO(Jam_Tmr.DN)OTE(Line_Run);"},{"comment":"MCP-1 DO O0: contactor M1, case conveyors (MTR1). OpenCell runs the belts only while M1 aux (Conv_Running) is on.","text":"XIC(Line_Run)OTE(Conv_Run);"},{"comment":"MCP-1 DO O1: contactor M2, pallet lines, transfer and wrapper (MTR2).","text":"XIC(Line_Run)OTE(Pal_Run);"},{"comment":"Stack light green: running.","text":"XIC(Line_Run)XIC(Conv_Running)XIO(Fault)OTE(Light_Green);"},{"comment":"Stack light amber: stopped and healthy, or order complete.","text":"[XIO(Line_Run) ,XIC(Order_Done) ]XIO(Fault)OTE(Light_Amber);"},{"comment":"Stack light red: flashes on any fault.","text":"XIC(Fault)XIC(Blink_On)OTE(Light_Red);"}]},{"name":"Palletizer_R1","type":"RLL","rungs":[{"comment":"RCP-1 DO O0: servo contactor K1 for the R-2000iC palletizer. Needs the line running and the pendant E-stop + fence gate (DI I0). OpenCell holds PAL_MAIN while K1 aux (R1_Servo_On) is off.","text":"XIC(Line_Run)XIC(R1_Safety_OK)OTE(R1_Enable);"},{"comment":"K1 commanded but no feedback for 2 s.","text":"XIC(R1_Enable)XIO(R1_Servo_On)TON(R1_Servo_Tmr,2000,0);"},{"comment":"","text":"XIC(R1_Servo_Tmr.DN)OTE(R1_Servo_Fault);"},{"comment":"RCP-1 DO O1: SERVO RUN lamp while PAL_MAIN runs.","text":"XIC(R1_Servo_On)XIC(R1_Running)OTE(R1_Lamp_Run);"},{"comment":"RCP-1 DO O2: robot UI start / enable, wired to the robot input. The robot only runs its program while this input is on.","text":"XIC(Line_Run)XIC(R1_Servo_On)XIO(R1_Servo_Fault)OTE(R1_Run_Cmd);"}]},{"name":"MachineTending_R2","type":"RLL","rungs":[{"comment":"RCP-2 DO O0: servo contactor K1 for the M-20iA machine tender on its rail.","text":"XIC(Line_Run)XIC(R2_Safety_OK)OTE(R2_Enable);"},{"comment":"K1 commanded but no feedback for 2 s.","text":"XIC(R2_Enable)XIO(R2_Servo_On)TON(R2_Servo_Tmr,2000,0);"},{"comment":"","text":"XIC(R2_Servo_Tmr.DN)OTE(R2_Servo_Fault);"},{"comment":"RCP-2 DO O1: SERVO RUN lamp while MTMAIN runs.","text":"XIC(R2_Servo_On)XIC(R2_Running)OTE(R2_Lamp_Run);"},{"comment":"RCP-2 DO O2: robot UI start / enable, wired to the robot input. The robot only runs its program while this input is on.","text":"XIC(Line_Run)XIC(R2_Servo_On)XIO(R2_Servo_Fault)OTE(R2_Run_Cmd);"}]},{"name":"Order","type":"RLL","rungs":[{"comment":"New order from the HMI or PB3 RESET: OpenCell resets its order counters and the dispensers release pallets again.","text":"[XIC(HMI_New_Order) ,XIC(Reset_PB) ]OTE(New_Order);"},{"comment":"Keep the order settings in range (the HMI and the line panel both write them).","text":"LES(Cases_Per_Pallet,1)MOV(1,Cases_Per_Pallet);"},{"comment":"","text":"GRT(Cases_Per_Pallet,16)MOV(16,Cases_Per_Pallet);"},{"comment":"","text":"LES(Parts_Per_Case,1)MOV(1,Parts_Per_Case);"},{"comment":"","text":"LES(CNC_Cycle,3)MOV(3,CNC_Cycle);"}]}],"main":"MainRoutine"}],"hmi":{"screens":[{"name":"Line overview","objs":[{"id":"omw3kengyda9","t":"text","x":0,"y":0,"w":24,"h":2,"tag":"","label":"PL-01 line","size":"l"},{"id":"omw3kengyriy","t":"mom","x":0,"y":3,"w":4,"h":2,"tag":"HMI_Start","label":"Start","color":"green"},{"id":"omw3kengyn8k","t":"mom","x":5,"y":3,"w":4,"h":2,"tag":"HMI_Stop","label":"Stop","color":"red"},{"id":"omw3kengy6on","t":"lamp","x":10,"y":3,"w":4,"h":3,"tag":"Line_Run","label":"Running","color":"green"},{"id":"omw3kengytqw","t":"lamp","x":15,"y":3,"w":4,"h":3,"tag":"Safety_OK","label":"Safety OK","color":"green"},{"id":"omw3kengyuh5","t":"lamp","x":20,"y":3,"w":4,"h":3,"tag":"Fault","label":"Fault","color":"red"},{"id":"omw3kengyf02","t":"lamp","x":25,"y":3,"w":4,"h":3,"tag":"Conv_Running","label":"M1 conveyors","color":"blue"},{"id":"omw3kengytiq","t":"lamp","x":25,"y":7,"w":4,"h":3,"tag":"Pal_Running","label":"M2 pallets","color":"blue"},{"id":"omw3kengyj0g","t":"num","x":0,"y":7,"w":5,"h":2,"tag":"Cases_Done","label":"Cases","dec":0,"units":""},{"id":"omw3kengyop9","t":"num","x":6,"y":7,"w":6,"h":2,"tag":"Pallets_Loaded","label":"On truck","dec":0,"units":""},{"id":"omw3kengyqv5","t":"num","x":13,"y":7,"w":5,"h":2,"tag":"Parts_Done","label":"Parts cut","dec":0,"units":""},{"id":"omw3kengydg9","t":"num","x":19,"y":7,"w":5,"h":2,"tag":"Parts_Packed","label":"Packed","dec":0,"units":""},{"id":"omw3kengyedf","t":"num","x":0,"y":10,"w":5,"h":2,"tag":"Disp_A_Count","label":"Empty A","dec":0,"units":""},{"id":"omw3kengyeoo","t":"num","x":6,"y":10,"w":6,"h":2,"tag":"Disp_B_Count","label":"Empty B","dec":0,"units":""},{"id":"omw3kengya1t","t":"num","x":13,"y":10,"w":5,"h":2,"tag":"Return_Parts","label":"On belt","dec":0,"units":""},{"id":"omw3kengy30c","t":"num","x":19,"y":10,"w":5,"h":2,"tag":"Trailer_Count","label":"In trailer","dec":0,"units":""},{"id":"omw3kengyvjc","t":"lamp","x":0,"y":13,"w":4,"h":3,"tag":"Light_Green","label":"Green","color":"green"},{"id":"omw3kengyf29","t":"lamp","x":5,"y":13,"w":4,"h":3,"tag":"Light_Amber","label":"Amber","color":"amber"},{"id":"omw3kengydl5","t":"lamp","x":10,"y":13,"w":4,"h":3,"tag":"Light_Red","label":"Red","color":"red"},{"id":"omw3kengy5am","t":"lamp","x":15,"y":13,"w":4,"h":3,"tag":"Wrapper_Busy","label":"Wrapping","color":"blue"},{"id":"omw3kengypr5","t":"lamp","x":20,"y":13,"w":4,"h":3,"tag":"Order_Done","label":"Order done","color":"green"},{"id":"omw3kengy6vg","t":"nav","x":0,"y":17,"w":5,"h":2,"tag":"","label":"Line","target":0},{"id":"omw3kengyoaz","t":"nav","x":6,"y":17,"w":5,"h":2,"tag":"","label":"Order","target":1},{"id":"omw3kengyux6","t":"nav","x":12,"y":17,"w":5,"h":2,"tag":"","label":"Palletizer R1","target":2},{"id":"omw3kengy1ea","t":"nav","x":18,"y":17,"w":5,"h":2,"tag":"","label":"Tending R2","target":3},{"id":"omw3kengyl6i","t":"nav","x":24,"y":17,"w":5,"h":2,"tag":"","label":"Alarms","target":4}]},{"name":"Order","objs":[{"id":"omw3kengyj72","t":"text","x":0,"y":0,"w":24,"h":2,"tag":"","label":"Customer order","size":"l"},{"id":"omw3kengy8z2","t":"entry","x":0,"y":3,"w":6,"h":3,"tag":"Order_Pallets","label":"Pallets (0 = run on)","min":0,"max":99},{"id":"omw3kengy8zy","t":"entry","x":7,"y":3,"w":6,"h":3,"tag":"Cases_Per_Pallet","label":"Cases per pallet","min":1,"max":16},{"id":"omw3kengyynx","t":"entry","x":14,"y":3,"w":6,"h":3,"tag":"Parts_Per_Case","label":"Parts per case","min":1,"max":6},{"id":"omw3kengy259","t":"entry","x":21,"y":3,"w":6,"h":3,"tag":"CNC_Cycle","label":"CNC cycle s","min":3,"max":300},{"id":"omw3kengywck","t":"num","x":0,"y":8,"w":6,"h":2,"tag":"Pallets_Wrapped","label":"Wrapped","dec":0,"units":""},{"id":"omw3kengyxc9","t":"num","x":7,"y":8,"w":6,"h":2,"tag":"Pallets_Loaded","label":"On truck","dec":0,"units":""},{"id":"omw3kengycwn","t":"lamp","x":14,"y":8,"w":4,"h":3,"tag":"Order_Done","label":"Order done","color":"green"},{"id":"omw3kengypzi","t":"mom","x":20,"y":8,"w":6,"h":2,"tag":"HMI_New_Order","label":"New order","color":"blue"},{"id":"omw3kengymxn","t":"bar","x":28,"y":3,"w":2,"h":8,"tag":"Pallets_Loaded","label":"Loaded","min":0,"max":16,"color":"green"},{"id":"omw3kengykkc","t":"nav","x":0,"y":17,"w":5,"h":2,"tag":"","label":"Line","target":0},{"id":"omw3kengycgh","t":"nav","x":6,"y":17,"w":5,"h":2,"tag":"","label":"Order","target":1},{"id":"omw3kengy7f3","t":"nav","x":12,"y":17,"w":5,"h":2,"tag":"","label":"Palletizer R1","target":2},{"id":"omw3kengyzm0","t":"nav","x":18,"y":17,"w":5,"h":2,"tag":"","label":"Tending R2","target":3},{"id":"omw3kengysur","t":"nav","x":24,"y":17,"w":5,"h":2,"tag":"","label":"Alarms","target":4}]},{"name":"Palletizer R1","objs":[{"id":"omw3kengyipz","t":"text","x":0,"y":0,"w":30,"h":2,"tag":"","label":"Palletizer R1 (R-2000iC) · cabinet RCP-1","size":"l"},{"id":"omw3kengy78p","t":"lamp","x":0,"y":3,"w":4,"h":3,"tag":"R1_Safety_OK","label":"Safety","color":"green"},{"id":"omw3kengyfls","t":"lamp","x":5,"y":3,"w":4,"h":3,"tag":"R1_Enable","label":"K1 cmd","color":"blue"},{"id":"omw3kengylbz","t":"lamp","x":10,"y":3,"w":4,"h":3,"tag":"R1_Servo_On","label":"Servo on","color":"green"},{"id":"omw3kengy4aw","t":"lamp","x":15,"y":3,"w":4,"h":3,"tag":"R1_Running","label":"PAL_MAIN","color":"green"},{"id":"omw3kengyh0k","t":"lamp","x":20,"y":3,"w":4,"h":3,"tag":"R1_Fault","label":"Robot alarm","color":"red"},{"id":"omw3kengygzp","t":"lamp","x":25,"y":3,"w":4,"h":3,"tag":"R1_Servo_Fault","label":"K1 fault","color":"red"},{"id":"omw3kengyc9i","t":"lamp","x":0,"y":8,"w":4,"h":3,"tag":"Case_At_Pick","label":"Case at pick","color":"amber"},{"id":"omw3kengygz0","t":"lamp","x":5,"y":8,"w":4,"h":3,"tag":"Pallet_A_Ready","label":"Pallet A","color":"blue"},{"id":"omw3kengyepi","t":"lamp","x":10,"y":8,"w":4,"h":3,"tag":"Pallet_B_Ready","label":"Pallet B","color":"blue"},{"id":"omw3kengyhh3","t":"lamp","x":15,"y":8,"w":4,"h":3,"tag":"Wrapper_Busy","label":"Wrapper","color":"blue"},{"id":"omw3kengyfov","t":"num","x":20,"y":8,"w":5,"h":2,"tag":"Cases_Done","label":"Cases","dec":0,"units":""},{"id":"omw3kengyiib","t":"entry","x":26,"y":8,"w":5,"h":3,"tag":"Cases_Per_Pallet","label":"Per pallet","min":1,"max":16},{"id":"omw3kengyhyf","t":"num","x":0,"y":12,"w":5,"h":2,"tag":"Disp_A_Count","label":"Empty A","dec":0,"units":""},{"id":"omw3kengytl4","t":"num","x":6,"y":12,"w":5,"h":2,"tag":"Disp_B_Count","label":"Empty B","dec":0,"units":""},{"id":"omw3kengyn1v","t":"nav","x":0,"y":17,"w":5,"h":2,"tag":"","label":"Line","target":0},{"id":"omw3kengyvho","t":"nav","x":6,"y":17,"w":5,"h":2,"tag":"","label":"Order","target":1},{"id":"omw3kengymfc","t":"nav","x":12,"y":17,"w":5,"h":2,"tag":"","label":"Palletizer R1","target":2},{"id":"omw3kengykoh","t":"nav","x":18,"y":17,"w":5,"h":2,"tag":"","label":"Tending R2","target":3},{"id":"omw3kengyjzp","t":"nav","x":24,"y":17,"w":5,"h":2,"tag":"","label":"Alarms","target":4}]},{"name":"Machine tending R2","objs":[{"id":"omw3kengyx8g","t":"text","x":0,"y":0,"w":30,"h":2,"tag":"","label":"Machine tender R2 (M-20iA on rail) · cabinet RCP-2","size":"l"},{"id":"omw3kengyaok","t":"lamp","x":0,"y":3,"w":4,"h":3,"tag":"R2_Safety_OK","label":"Safety","color":"green"},{"id":"omw3kengyen2","t":"lamp","x":5,"y":3,"w":4,"h":3,"tag":"R2_Enable","label":"K1 cmd","color":"blue"},{"id":"omw3kengya4p","t":"lamp","x":10,"y":3,"w":4,"h":3,"tag":"R2_Servo_On","label":"Servo on","color":"green"},{"id":"omw3kengyyui","t":"lamp","x":15,"y":3,"w":4,"h":3,"tag":"R2_Running","label":"MTMAIN","color":"green"},{"id":"omw3kengy7nx","t":"lamp","x":20,"y":3,"w":4,"h":3,"tag":"R2_Fault","label":"Robot alarm","color":"red"},{"id":"omw3kengy2cd","t":"lamp","x":25,"y":3,"w":4,"h":3,"tag":"R2_Servo_Fault","label":"K1 fault","color":"red"},{"id":"omw3kengycd9","t":"lamp","x":0,"y":8,"w":4,"h":3,"tag":"VMC1_Running","label":"VMC1","color":"green"},{"id":"omw3kengyic9","t":"lamp","x":5,"y":8,"w":4,"h":3,"tag":"VMC2_Running","label":"VMC2","color":"green"},{"id":"omw3kengymg0","t":"lamp","x":10,"y":8,"w":4,"h":3,"tag":"VMC3_Running","label":"VMC3","color":"green"},{"id":"omw3kengyjnp","t":"lamp","x":15,"y":8,"w":4,"h":3,"tag":"VMC1_Door_Open","label":"Door 1","color":"amber"},{"id":"omw3kengymkb","t":"lamp","x":20,"y":8,"w":4,"h":3,"tag":"VMC2_Door_Open","label":"Door 2","color":"amber"},{"id":"omw3kengy8cy","t":"lamp","x":25,"y":8,"w":4,"h":3,"tag":"VMC3_Door_Open","label":"Door 3","color":"amber"},{"id":"omw3kengy82z","t":"num","x":0,"y":12,"w":5,"h":2,"tag":"Parts_Done","label":"Parts cut","dec":0,"units":""},{"id":"omw3kengypid","t":"num","x":6,"y":12,"w":5,"h":2,"tag":"Return_Parts","label":"On belt","dec":0,"units":""},{"id":"omw3kengyjue","t":"num","x":12,"y":12,"w":5,"h":2,"tag":"Parts_Packed","label":"Packed","dec":0,"units":""},{"id":"omw3kengy5jc","t":"entry","x":18,"y":12,"w":6,"h":3,"tag":"CNC_Cycle","label":"CNC cycle s","min":3,"max":300},{"id":"omw3kengyoay","t":"entry","x":25,"y":12,"w":5,"h":3,"tag":"Parts_Per_Case","label":"Per case","min":1,"max":6},{"id":"omw3kengykip","t":"nav","x":0,"y":17,"w":5,"h":2,"tag":"","label":"Line","target":0},{"id":"omw3kengy1wu","t":"nav","x":6,"y":17,"w":5,"h":2,"tag":"","label":"Order","target":1},{"id":"omw3kengyx95","t":"nav","x":12,"y":17,"w":5,"h":2,"tag":"","label":"Palletizer R1","target":2},{"id":"omw3kengynvd","t":"nav","x":18,"y":17,"w":5,"h":2,"tag":"","label":"Tending R2","target":3},{"id":"omw3kengyvdp","t":"nav","x":24,"y":17,"w":5,"h":2,"tag":"","label":"Alarms","target":4}]},{"name":"Alarms","objs":[{"id":"omw3kengybj6","t":"text","x":0,"y":0,"w":24,"h":2,"tag":"","label":"Alarms","size":"l"},{"id":"omw3kengy2xj","t":"alarms","x":0,"y":3,"w":30,"h":12,"tag":""},{"id":"omw3kengyon8","t":"nav","x":0,"y":17,"w":5,"h":2,"tag":"","label":"Line","target":0},{"id":"omw3kengymre","t":"nav","x":6,"y":17,"w":5,"h":2,"tag":"","label":"Order","target":1},{"id":"omw3kengyhb5","t":"nav","x":12,"y":17,"w":5,"h":2,"tag":"","label":"Palletizer R1","target":2},{"id":"omw3kengyih0","t":"nav","x":18,"y":17,"w":5,"h":2,"tag":"","label":"Tending R2","target":3},{"id":"omw3kengym8u","t":"nav","x":24,"y":17,"w":5,"h":2,"tag":"","label":"Alarms","target":4}]}],"alarms":[{"id":"omw3kengyqne","tag":"EStop_OK","cond":"off","value":0,"msg":"MCP-1: line E-stop ES1 pressed or its circuit is open (DI I0)","sev":"High"},{"id":"omw3kengyslq","tag":"OL_OK","cond":"off","value":0,"msg":"MCP-1: motor overload OL1 or OL2 tripped (DI I4)","sev":"High"},{"id":"omw3kengyvas","tag":"Jam_Tmr.DN","cond":"on","value":0,"msg":"MCP-1: M1 commanded but no aux feedback (contactor, coil or DI I3)","sev":"High"},{"id":"omw3kengy0bb","tag":"R1_Safety_OK","cond":"off","value":0,"msg":"RCP-1: R1 palletizer pendant E-stop or fence gate open (DI I0)","sev":"High"},{"id":"omw3kengyhhr","tag":"R1_Servo_Fault","cond":"on","value":0,"msg":"RCP-1: K1 servo contactor commanded, no feedback (DI I1)","sev":"High"},{"id":"omw3kengy8wl","tag":"R1_Fault","cond":"on","value":0,"msg":"R1 palletizer: robot fault output on (DI I3)","sev":"High"},{"id":"omw3kengyyo3","tag":"R2_Safety_OK","cond":"off","value":0,"msg":"RCP-2: R2 machine tender pendant E-stop or fence gate open (DI I0)","sev":"High"},{"id":"omw3kengy4qe","tag":"R2_Servo_Fault","cond":"on","value":0,"msg":"RCP-2: K1 servo contactor commanded, no feedback (DI I1)","sev":"High"},{"id":"omw3kengycty","tag":"R2_Fault","cond":"on","value":0,"msg":"R2 machine tender: robot fault output on (DI I3)","sev":"High"},{"id":"omw3kengy4lj","tag":"Disp_A_Count","cond":"<","value":1,"msg":"Pallet dispenser A empty","sev":"Medium"},{"id":"omw3kengy4u5","tag":"Disp_B_Count","cond":"<","value":1,"msg":"Pallet dispenser B empty","sev":"Medium"},{"id":"omw3kengyygu","tag":"Order_Done","cond":"on","value":0,"msg":"Order complete, all pallets on the truck","sev":"Low"}]},"io":{"cards":[],"models":[]}}}</script>
+<script type="application/json" id="labProjects"></script>
 <script>
 "use strict";
 /* OpenRung: a clean-room ladder logic editor and simulator.
@@ -519,6 +525,7 @@ function findTag(name, prog){
 }
 function resolve(path, prog, depth){
   path = String(path || '').trim();
+  if (/^S:FS$/i.test(path)) return {type:'BOOL', dim:0, get(){ return FIRST_SCAN ? 1 : 0; }, set(){}};  /* first scan bit */
   const m = /^[A-Za-z_]\w*/.exec(path);
   if (!m || (depth || 0) > 8) return null;
   const tag = findTag(m[0], prog);
@@ -1116,11 +1123,15 @@ function runRoutine(rt, c, params){
   c.loops = cc.loops;
   return cc.ret || [];
 }
+let FIRST_SCAN = false;
 function scanProject(proj, dt, deadline){
+  FIRST_SCAN = !proj._scanned;
   for (const prog of proj.programs){
     if (!prog._roots) prog._roots = rootsOf(prog);
     for (const rt of prog._roots) runRoutine(rt, {prog, dt, deadline, depth:0});
   }
+  Object.defineProperty(proj, '_scanned', {value:true, writable:true, configurable:true, enumerable:false});
+  FIRST_SCAN = false;
 }
 /* "Program:Main.Tag" reaches a program tag; a plain name looks in controller scope, then in each program */
 function resolveAny(path){
@@ -1610,6 +1621,7 @@ function normalize(p){
   if (!p.hmi) p.hmi = {};
   if (!Array.isArray(p.hmi.screens) || !p.hmi.screens.length) p.hmi.screens = [{name:'Main', objs:[]}];
   if (!Array.isArray(p.hmi.alarms)) p.hmi.alarms = [];
+  if (!Array.isArray(p.hmi.users)) p.hmi.users = [];
   if (!p.io) p.io = {};
   if (!Array.isArray(p.io.cards)) p.io.cards = [];
   if (!Array.isArray(p.io.models)) p.io.models = [];
@@ -2663,6 +2675,14 @@ function importL5X(text){
 }
 
 /* ---------------- L5X export ---------------- */
+/* Studio 5000 opens files from its own version or older, so the default is v30 (what school PCs open).
+   School format: each UDT, each AOI and each routine is its own file; routines carry the UDTs and tags as context
+   but not the AOI definitions (import the AOIs first), and tags carry no values (set them in logic). */
+let L5X_REV = '30.00';
+try { L5X_REV = localStorage.getItem('openrung.l5xRev') || '30.00'; } catch(e){}
+const REV = () => L5X_REV;
+let SCHOOL = true;
+try { SCHOOL = localStorage.getItem('openrung.l5xSchool') !== '0'; } catch(e){}
 const xa = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const cd = s => '<![CDATA[' + String(s).replace(/]]>/g, ']]]]><![CDATA[>') + ']]>';
 const radix = t => t === 'REAL' ? 'Float' : isAtomic(t) ? 'Decimal' : 'NullType';
@@ -2672,8 +2692,8 @@ function orderedUdts(){
     for (const m of u.members){ const d = P.udts.find(x => lc(x.name) === lc(m.type)); if (d) visit(d); } out.push(u); };
   P.udts.forEach(visit); return out;
 }
-function udtXML(u){
-  const L = [`<DataType Name="${xa(u.name)}" Family="NoFamily" Class="User">`];
+function udtXML(u, use){
+  const L = [`<DataType ${use ? `Use="${use}" ` : ''}Name="${xa(u.name)}" Family="NoFamily" Class="User">`];
   if (u.description) L.push(`<Description>\n${cd(u.description)}\n</Description>`);
   L.push('<Members>');
   const out = []; let host = null, hostBits = 0;
@@ -2759,7 +2779,7 @@ function orderedAois(){
 const isoNow = () => new Date().toISOString().replace(/\.\d+Z$/, '.000Z');
 function aoiXML(a, use){
   const desc = d => d ? [`<Description>`, cd(d), `</Description>`] : [];
-  const L = [`<AddOnInstructionDefinition Use="${use}" Name="${xa(a.name)}" Revision="${xa(a.revision || '1.0')}" ExecutePrescan="false" ExecutePostscan="false" ExecuteEnableInFalse="false" CreatedDate="${isoNow()}" CreatedBy="OpenRung" EditedDate="${isoNow()}" EditedBy="OpenRung" SoftwareRevision="v${xa(P.rev || '32.00')}">`];
+  const L = [`<AddOnInstructionDefinition Use="${use}" Name="${xa(a.name)}" Revision="${xa(a.revision || '1.0')}" ExecutePrescan="false" ExecutePostscan="false" ExecuteEnableInFalse="false" CreatedDate="${isoNow()}" CreatedBy="OpenRung" EditedDate="${isoNow()}" EditedBy="OpenRung" SoftwareRevision="v${xa(REV())}">`];
   L.push(...desc(a.description), '<Parameters>');
   /* Studio 5000 writes the system parameters with no DefaultData */
   const sys = (name, usage, d) => [`<Parameter Name="${name}" TagType="Base" DataType="BOOL" Usage="${usage}" Radix="Decimal" Required="false" Visible="false" ExternalAccess="Read Only">`, ...desc(d), '</Parameter>'];
@@ -2786,7 +2806,7 @@ function exportAoi(ai){
   const a = P.aois[ai], deps = orderedAois().filter(x => x !== a && aoiUses(a, x.name));
   const udts = orderedUdts().filter(u => [a, ...deps].some(x => x.tags.some(t => usesType(t.type, u.name))));
   const L = ['<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
-    `<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="${xa(P.rev || '32.00')}" TargetName="${xa(a.name)}" TargetType="AddOnInstructionDefinition" TargetRevision="${xa(a.revision || '1.0')}" TargetLastEdited="${isoNow()}" ContainsContext="true" ExportDate="${exportDate()}" ExportOptions="References NoRawData L5KData DecoratedData Context Dependencies ForceProtectedEncoding AllProjDocTrans">`,
+    `<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="${xa(REV())}" TargetName="${xa(a.name)}" TargetType="AddOnInstructionDefinition" TargetRevision="${xa(a.revision || '1.0')}" TargetLastEdited="${isoNow()}" ContainsContext="true" ExportDate="${exportDate()}" ExportOptions="References NoRawData L5KData DecoratedData Context Dependencies ForceProtectedEncoding AllProjDocTrans">`,
     `<Controller Use="Context" Name="${xa(P.name)}">`];
   if (udts.length) L.push('<DataTypes Use="Context">', ...udts.map(udtXML), '</DataTypes>');
   L.push('<AddOnInstructionDefinitions Use="Context">', ...deps.map(x => aoiXML(x, 'Context')), aoiXML(a, 'Target'), '</AddOnInstructionDefinitions>', '</Controller>', '</RSLogix5000Content>');
@@ -2811,16 +2831,23 @@ function exportDate(){
   const d = new Date(), p = n => String(n).padStart(2, '0');
   return `${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()]} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]} ${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())} ${d.getFullYear()}`;
 }
+function exportUdt(ui){
+  const u = P.udts[ui], deps = orderedUdts().filter(x => x !== u && usesType(u.name, x.name));
+  return ['<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
+    `<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="${xa(REV())}" TargetName="${xa(u.name)}" TargetType="DataType" ContainsContext="true" ExportDate="${exportDate()}" ExportOptions="References NoRawData L5KData DecoratedData Context Dependencies ForceProtectedEncoding AllProjDocTrans">`,
+    `<Controller Use="Context" Name="${xa(P.name)}">`, '<DataTypes Use="Context">', ...deps.map(x => udtXML(x)), udtXML(u, 'Target'), '</DataTypes>', '</Controller>', '</RSLogix5000Content>'].join('\n');
+}
 function exportRoutine(pi, ri, withData){
+  if (SCHOOL) withData = false;
   const prog = P.programs[pi], rt = prog.routines[ri];
   const L = [];
   L.push('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>');
   const st = rt.type === 'ST';
-  L.push(`<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="${xa(P.rev || '32.00')}" TargetName="${xa(rt.name)}" TargetType="Routine" TargetSubType="${st ? 'ST' : 'RLL'}" ContainsContext="true" ExportDate="${exportDate()}" ExportOptions="References NoRawData L5KData DecoratedData Context Dependencies ForceProtectedEncoding AllProjDocTrans">`);
+  L.push(`<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="${xa(REV())}" TargetName="${xa(rt.name)}" TargetType="Routine" TargetSubType="${st ? 'ST' : 'RLL'}" ContainsContext="true" ExportDate="${exportDate()}" ExportOptions="References NoRawData L5KData DecoratedData Context Dependencies ForceProtectedEncoding AllProjDocTrans">`);
   L.push(`<Controller Use="Context" Name="${xa(P.name)}">`);
   const udts = orderedUdts();
   if (udts.length) L.push('<DataTypes Use="Context">', ...udts.map(udtXML), '</DataTypes>');
-  if (P.aois.length) L.push('<AddOnInstructionDefinitions Use="Context">', ...orderedAois().map(a => aoiXML(a, 'Context')), '</AddOnInstructionDefinitions>');
+  if (P.aois.length && !SCHOOL) L.push('<AddOnInstructionDefinitions Use="Context">', ...orderedAois().map(a => aoiXML(a, 'Context')), '</AddOnInstructionDefinitions>');
   if (P.tags.length) L.push('<Tags Use="Context">', ...P.tags.map(t => tagXML(t, withData)), '</Tags>');
   L.push('<Programs Use="Context">', `<Program Use="Context" Name="${xa(prog.name)}">`);
   if (prog.tags.length) L.push('<Tags Use="Context">', ...prog.tags.map(t => tagXML(t, withData)), '</Tags>');
@@ -2836,7 +2863,7 @@ function routineXML(prog, rt, use){
 function exportProgram(pi, withData){
   const prog = P.programs[pi], udts = orderedUdts();
   const L = ['<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
-    `<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="${xa(P.rev || '32.00')}" TargetName="${xa(prog.name)}" TargetType="Program" ContainsContext="true" ExportDate="${exportDate()}" ExportOptions="References NoRawData L5KData DecoratedData Context Dependencies ForceProtectedEncoding AllProjDocTrans">`,
+    `<RSLogix5000Content SchemaRevision="1.0" SoftwareRevision="${xa(REV())}" TargetName="${xa(prog.name)}" TargetType="Program" ContainsContext="true" ExportDate="${exportDate()}" ExportOptions="References NoRawData L5KData DecoratedData Context Dependencies ForceProtectedEncoding AllProjDocTrans">`,
     `<Controller Use="Context" Name="${xa(P.name)}">`];
   if (udts.length) L.push('<DataTypes Use="Context">', ...udts.map(udtXML), '</DataTypes>');
   if (P.aois.length) L.push('<AddOnInstructionDefinitions Use="Context">', ...orderedAois().map(a => aoiXML(a, 'Context')), '</AddOnInstructionDefinitions>');
@@ -2900,21 +2927,33 @@ function showExport(){
   P.programs.forEach((p, pi) => p.routines.forEach((r, ri) => { if (r.type === 'RLL' || r.type === 'ST') opts.push([pi, ri, `${p.name} / ${r.name}${r.type === 'ST' ? ' (ST)' : ''}`]); }));
   P.programs.forEach((p, pi) => opts.push(['prog', pi, `Program ${p.name} (all routines)`]));
   P.aois.forEach((a, ai) => opts.push(['aoi', ai, `Add-On Instruction ${a.name}`]));
+  P.udts.forEach((u, ui) => opts.push(['udt', ui, `Data type (UDT) ${u.name}`]));
   if (!opts.length){ toast('There is no ladder or structured text routine to export.'); return; }
   const v = state.view, cur = v.aoi != null && (v.kind === 'routine' || v.kind === 'aoi') ? `aoi:${v.aoi}` : v.kind === 'routine' ? `${v.prog}:${v.rt}` : `${opts[0][0]}:${opts[0][1]}`;
   openModal(`<h2>Export L5X</h2>
-    <p>Exports one routine, a whole program, or an Add-On Instruction, with the data types, AOIs and tags it needs as context. In Studio 5000, right-click a program and choose <b>Add › Import Routine</b>, right-click a task and choose <b>Add › Import Program</b>, or right-click <b>Add-On Instructions › Import Add-On Instruction</b>.</p>
+    <p>Exports a routine, a program, an Add-On Instruction or a data type as <span class="mono">.L5X</span> for Studio 5000. Import in this order: <b>Data Types › User-Defined › Import Data Type</b>, then <b>Add-On Instructions › Import Add-On Instruction</b>, then right-click the program › <b>Import Routine</b>, and call it with a JSR from MainRoutine.</p>
+    <div class="addrow"><div class="field"><label for="exRev">Studio 5000 version</label><select id="exRev">${['30.00','31.00','32.00','33.00','34.00','35.00','36.00'].map(r => `<option${r === L5X_REV ? ' selected' : ''} value="${r}">v${parseInt(r)}${r === '30.00' ? ' (school PCs)' : ''}</option>`).join('')}</select></div>
+    <label style="display:flex;gap:6px;align-items:center;padding-bottom:6px"><input type="checkbox" id="exSchool"${SCHOOL ? ' checked' : ''}> School format (UDT, AOI and routine as separate files)</label></div>
     <div class="addrow"><div class="field"><label for="exRt">Routine</label><select id="exRt">${opts.map(o => `<option value="${o[0]}:${o[1]}"${`${o[0]}:${o[1]}` === cur ? ' selected' : ''}>${esc(o[2])}</option>`).join('')}</select></div>
     <label style="display:flex;gap:6px;align-items:center;padding-bottom:6px"><input type="checkbox" id="exData" checked> Include tag values</label></div>
     <textarea id="exXml" readonly spellcheck="false" rows="12"></textarea>
-    <div class="btns"><button class="primary" id="exSave">Save file</button><button id="exCopy">Copy XML</button><button data-close>Close</button></div>
+    <div class="btns"><button class="primary" id="exSave">Save file</button><button id="exAll">Save all files for Studio 5000</button><button id="exCopy">Copy XML</button><button data-close>Close</button></div>
     <p class="note" id="exNote"></p>`);
-  const pick = () => { const [x, y] = $('#exRt').value.split(':'); return x === 'aoi' ? {aoi:+y, name:P.aois[+y].name} : x === 'prog' ? {prog:+y, name:P.programs[+y].name} : {pi:+x, ri:+y, name:P.programs[+x].routines[+y].name}; };
-  const gen = () => { const p = pick(); $('#exXml').value = p.aoi != null ? exportAoi(p.aoi) : p.prog != null ? exportProgram(p.prog, $('#exData').checked) : exportRoutine(p.pi, p.ri, $('#exData').checked); };
+  const pick = () => { const [x, y] = $('#exRt').value.split(':'); return x === 'udt' ? {udt:+y, name:P.udts[+y].name} : x === 'aoi' ? {aoi:+y, name:P.aois[+y].name} : x === 'prog' ? {prog:+y, name:P.programs[+y].name} : {pi:+x, ri:+y, name:P.programs[+x].routines[+y].name}; };
+  const gen = () => { const p = pick(); $('#exXml').value = p.udt != null ? exportUdt(p.udt) : p.aoi != null ? exportAoi(p.aoi) : p.prog != null ? exportProgram(p.prog, $('#exData').checked) : exportRoutine(p.pi, p.ri, $('#exData').checked); };
+  $('#exRev').onchange = () => { L5X_REV = $('#exRev').value; try { localStorage.setItem('openrung.l5xRev', L5X_REV); } catch(e){} gen(); };
+  $('#exSchool').onchange = () => { SCHOOL = $('#exSchool').checked; try { localStorage.setItem('openrung.l5xSchool', SCHOOL ? '1' : '0'); } catch(e){} gen(); };
   $('#exRt').onchange = gen; $('#exData').onchange = gen; gen();
+  $('#exAll').onclick = async () => {
+    const files = schoolFiles(), done = [];
+    for (const f of files){ if (await saveL5X(f.name, f.xml)) done.push(f.name); else break; }
+    $('#exNote').textContent = done.length ? `Saved ${done.length} file(s): ${done.join(', ')}. Import them in number order.` : 'Nothing saved.';
+  };
   $('#exCopy').onclick = e => copy($('#exXml').value, e.target);
   $('#exSave').onclick = async () => {
     const base = pick().name, xml = $('#exXml').value;
+    if (await saveL5X(base, xml)) $('#exNote').textContent = 'Saved ' + base + '.L5X' + (inViewer() ? '.txt (remove the .txt ending before importing)' : '');
+    return;
     if (!inViewer()){
       const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([xml], {type:'application/xml'})); a.download = base + '.L5X'; a.click();
       $('#exNote').textContent = 'Saved ' + base + '.L5X'; return;
@@ -2924,6 +2963,23 @@ function showExport(){
     catch(err){ $('#exNote').textContent = err && err.code === 'declined' ? 'Save cancelled.' : 'Could not save here. Use Copy XML instead.'; }
   };
 }
+/* every UDT, AOI and ladder/ST routine as numbered files, in the order Studio 5000 needs them */
+function schoolFiles(){
+  const out = [];
+  orderedUdts().forEach(u => out.push({name:`1_${u.name}_UDT`, xml:exportUdt(P.udts.indexOf(u))}));
+  orderedAois().forEach(a => out.push({name:`2_${a.name}_AOI`, xml:exportAoi(P.aois.indexOf(a))}));
+  P.programs.forEach((p, pi) => p.routines.forEach((r, ri) => { if (r.type === 'RLL' || r.type === 'ST') out.push({name:`3_${p.name}_${r.name}`, xml:exportRoutine(pi, ri, false)}); }));
+  return out;
+}
+async function saveL5X(base, xml){
+  if (!inViewer()){
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([xml], {type:'application/xml'})); a.download = base + '.L5X'; a.click();
+    await new Promise(r => setTimeout(r, 250)); return true;
+  }
+  if (!downloads) return false;
+  try { await downloads.save({filename:base + '.L5X.txt', data:new Blob([xml], {type:'text/plain'})}); return true; } catch(err){ return false; }
+}
+window.openrungSchoolFiles = schoolFiles;
 function showAbout(){
   openModal(`<h2>About OpenRung</h2>
     <p class="credit">Built by <b>Ali Jafari</b>, founder of OpenRung.</p>
@@ -2951,6 +3007,7 @@ function showProject(){
     <div class="recent">${rec.length ? rec.map(r => `<div class="rrec"><span class="mono">${esc(r.name)}</span><span class="muted">${new Date(r.at).toLocaleString()}</span><button data-ropen="${esc(r.name)}"${r.name === P.name ? ' disabled' : ''}>${r.name === P.name ? 'Open now' : 'Open'}</button><button class="danger" data-rdel="${esc(r.name)}"${r.name === P.name ? ' disabled' : ''}>Remove</button></div>`).join('') : '<p class="note">None yet.</p>'}</div>
     <h3 class="sth">Start over</h3>
     <div class="addrow"><div class="field"><label for="npName">New controller name</label><input id="npName" value="MyProject" class="mono"></div><button id="npGo">New empty project</button><button id="npSample">${$('#sampleL5X').textContent.trim() ? 'Load the Lab 5 sample' : 'Load the showcase project'}</button></div>
+    ${labProjects().length ? `<div class="btns">${labProjects().map((l, i) => `<button data-lab="${i}">Open ${esc(l.title)}</button>`).join('')}</div>` : ''}
     <p class="note" id="pjNote">The current project stays in the recent list when you switch.</p>
     <div class="btns"><button data-close>Close</button></div>`);
   const swap = p => { save(true); pushUndo(); P = normalize(p); reparseAll(); state.view = {kind:'routine', prog:0, rt:0}; state.sel = null; state.hsel = null; ALARMS.reset(); save(true); closeModal(); renderAll(); };
@@ -2964,6 +3021,7 @@ function showProject(){
   }); };
   $('#npGo').onclick = () => { const n = $('#npName').value.trim(); swap(emptyProject(validName(n) ? n : 'MyProject')); };
   $('#npSample').onclick = () => swap(sampleProject());
+  $('#sheet').querySelectorAll('[data-lab]').forEach(b => b.onclick = () => { const l = labProjects()[+b.dataset.lab]; swap(JSON.parse(JSON.stringify(l.project))); toast('Opened ' + l.title); });
   $('#sheet').querySelectorAll('[data-ropen]').forEach(b => b.onclick = () => { try { const p = JSON.parse(localStorage.getItem(PFX + b.dataset.ropen)); swap(p); toast('Opened ' + P.name); } catch(x){ toast('That project could not be read.'); } });
   $('#sheet').querySelectorAll('[data-rdel]').forEach(b => b.onclick = () => { try { localStorage.removeItem(PFX + b.dataset.rdel); localStorage.setItem(RKEY, JSON.stringify(recentList().filter(r => r.name !== b.dataset.rdel))); } catch(x){} showProject(); });
 }
@@ -3163,6 +3221,8 @@ const HT = {
   tank:  {n:'Tank', g:'Analog', w:5, h:7, f:['tag','label','min','max','color'], d:{label:'Tank', min:0, max:100, color:'blue'}},
   axis:  {n:'Axis position', g:'Analog', w:14, h:5, f:['tag','label','min','max','dec','units'], d:{label:'Axis', min:0, max:100, dec:2, units:'mm'}},
   trend: {n:'Trend', g:'Displays', w:18, h:8, f:['pens','span','min','max'], d:{pens:['','','',''], span:30, min:0, max:100}},
+  rotor: {n:'Rotating mixer', g:'Analog', w:4, h:4, f:['tag','label','color'], d:{label:'Mixer', color:'grey'}},
+  login: {n:'Login / logout', g:'Buttons', w:10, h:3, f:['label'], d:{label:'Security'}},
   alarms:{n:'Alarm list', g:'Displays', w:24, h:6, f:[], d:{}},
   model: {n:'Process view', g:'Displays', w:16, h:5, f:['model'], d:{model:0}},
 };
@@ -3210,7 +3270,7 @@ function renderHmiToolbar(tb){
 }
 function hIcon(t){
   const i = {mom:'<rect x="2" y="4" width="12" height="8" rx="2"/>', mnt:'<rect x="2" y="4" width="12" height="8" rx="2"/><path d="M5 8h6"/>', nav:'<path d="M3 8h9M9 5l3 3-3 3"/>',
-    lamp:'<circle cx="8" cy="8" r="5"/>', multi:'<rect x="2" y="5" width="12" height="6" rx="3"/>', num:'<path d="M3 5h3v6M9 5h4v3H9v3h4"/>', text:'<path d="M3 4h10M8 4v9"/>',
+    lamp:'<circle cx="8" cy="8" r="5"/>', rotor:'<circle cx="8" cy="8" r="6"/><path d="M3 8h10M8 3v10"/>', login:'<circle cx="8" cy="6" r="3"/><path d="M3 14c0-3 2-4 5-4s5 1 5 4"/>', multi:'<rect x="2" y="5" width="12" height="6" rx="3"/>', num:'<path d="M3 5h3v6M9 5h4v3H9v3h4"/>', text:'<path d="M3 4h10M8 4v9"/>',
     entry:'<rect x="2" y="4" width="12" height="8" rx="1"/><path d="M5 7v2"/>', bar:'<rect x="6" y="2" width="4" height="12"/><path d="M6 9h4"/>', tank:'<path d="M3 3v9a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V3"/><path d="M3 9h10"/>', axis:'<path d="M1 11h14"/><rect x="6" y="5" width="4" height="4"/>',
     trend:'<path d="M2 12l4-5 3 3 5-7"/>', alarms:'<path d="M8 2l6 11H2z"/><path d="M8 6v3"/>', model:'<rect x="1" y="7" width="14" height="4" rx="2"/><rect x="4" y="3" width="4" height="4"/>'}[t];
   return `<svg class="hico" viewBox="0 0 16 16" aria-hidden="true">${i}</svg>`;
@@ -3238,13 +3298,40 @@ function addObj(t, x, y){
   edit(() => hScreen().objs.push(o));
   state.hsel = o.id; renderHmi(); renderInspector(); renderOrg();
 }
+/* HMI security: users with security codes A-P, like a PanelView. Nobody logged in = DEFAULT (no codes). */
+const HSEC = {user:null,
+  codes(){ return this.user ? this.user.codes : ''; },
+  login(name, pass){ const u = (P.hmi.users || []).find(x => lc(x.name) === lc(name)); if (!u || String(u.pass || '') !== String(pass || '')) return false; this.user = {name:u.name, codes:String(u.codes || '').toUpperCase()}; return true; },
+  logout(){ this.user = null; }};
+/* visibility expression, FactoryTalk style: {[PLC]Tag} or Tag, numbers, == <> != > < >= <=, AND OR NOT, ( ), CurrentUserHasCode(B) */
+function hExpr(src){
+  const s = String(src || '').replace(/\{\[[^\]]*\]([^}]*)\}/g, '$1').replace(/\{([^}]*)\}/g, '$1');
+  const re = /\s*(CurrentUserHasCode\s*\(\s*([A-Pa-p])\s*\)|-?\d+(?:\.\d+)?|==|<>|!=|>=|<=|[<>()!=]|(?:Program:)?[A-Za-z_][\w.:\[\]]*)/y;
+  const T = []; let i = 0, m;
+  while (i < s.length){ re.lastIndex = i; m = re.exec(s); if (!m){ if (/^\s*$/.test(s.slice(i))) break; throw new Error('bad expression'); } i = re.lastIndex;
+    const t = m[1];
+    if (m[2]) T.push({v:HSEC.codes().includes(m[2].toUpperCase()) ? 1 : 0});
+    else if (/^(AND|OR|NOT)$/i.test(t)) T.push({op:t.toUpperCase()});
+    else if (/^-?\d/.test(t)) T.push({v:Number(t)});
+    else if (/^(==|=|<>|!=|>=|<=|<|>|\(|\)|!)$/.test(t)) T.push({op:t === '=' ? '==' : t === '!=' ? '<>' : t === '!' ? 'NOT' : t});
+    else { const v = hval(t); T.push({v:v == null ? 0 : Number(v)}); } }
+  /* no eval (the page's security policy forbids it): a small recursive descent parser */
+  let k = 0; const peek = () => T[k] && T[k].op, take = () => T[k++];
+  const prim = () => { const t = take(); if (!t) throw new Error('end'); if (t.op === '(') { const v = or(); if (take()?.op !== ')') throw new Error(')'); return v; } if (t.op === 'NOT') return prim() ? 0 : 1; if (t.op) throw new Error(t.op); return t.v; };
+  const cmp = () => { let a = prim(); while (['==','<>','<','>','<=','>='].includes(peek())){ const o = take().op, b = prim();
+    a = o === '==' ? +(a === b) : o === '<>' ? +(a !== b) : o === '<' ? +(a < b) : o === '>' ? +(a > b) : o === '<=' ? +(a <= b) : +(a >= b); } return a; };
+  const and = () => { let a = cmp(); while (peek() === 'AND'){ take(); const b = cmp(); a = +(!!a && !!b); } return a; };
+  const or = () => { let a = and(); while (peek() === 'OR'){ take(); const b = and(); a = +(!!a || !!b); } return a; };
+  if (!T.length) return true; const r = or(); if (k < T.length) throw new Error('extra'); return !!r;
+}
+function hVisible(o){ if (!o.vis || !String(o.vis).trim()) return true; try { return hExpr(o.vis); } catch(e){ return true; } }
 function renderHmi(){
   const sc = hScreen(), view = $('#view');
   const cols = Math.max(36, ...sc.objs.map(o => o.x + o.w + 2)), rows = Math.max(26, ...sc.objs.map(o => o.y + o.h + 2));
   let h = state.hmiRun ? '' : `<div class="lhead"><h2>${esc(sc.name)}</h2><span class="muted mono">HMI screen · design mode · ${sc.objs.length} object${sc.objs.length === 1 ? '' : 's'}</span></div>`;
   h += `<div class="hcanvas${state.hmiRun ? ' run' : ''}" id="hcanvas" style="width:${cols * CELL}px;height:${rows * CELL}px">`;
   if (!sc.objs.length && !state.hmiRun) h += `<div class="hempty">Drag buttons, lamps and displays from the toolbar onto this screen, or click one to add it.</div>`;
-  for (const o of sc.objs) h += `<div class="ho t-${o.t}${state.hsel === o.id && !state.hmiRun ? ' sel' : ''}" data-oid="${o.id}" style="left:${o.x * CELL}px;top:${o.y * CELL}px;width:${o.w * CELL}px;height:${o.h * CELL}px">${hInner(o)}${state.hmiRun ? '' : '<span class="rz" title="Drag to resize"></span>'}</div>`;
+  for (const o of sc.objs) h += `<div class="ho t-${o.t}${state.hsel === o.id && !state.hmiRun ? ' sel' : ''}${o.vis && !state.hmiRun ? ' hasvis' : ''}" data-oid="${o.id}"${o.vis && !state.hmiRun ? ` title="Visible when: ${esc(o.vis)}"` : ''} style="left:${o.x * CELL}px;top:${o.y * CELL}px;width:${o.w * CELL}px;height:${o.h * CELL}px${state.hmiRun && !hVisible(o) ? ';display:none' : ''}">${hInner(o)}${state.hmiRun ? '' : '<span class="rz" title="Drag to resize"></span>'}</div>`;
   h += `</div>`;
   if (state.hmiRun && !CONN.online) h = `<div class="rerr">Offline. Go online to run this screen.</div>` + h;
   view.innerHTML = h;
@@ -3277,6 +3364,10 @@ function hInner(o){
     }
     case 'trend': return trendSVG(o, o.w * CELL - 6, o.h * CELL - 6);
     case 'alarms': return ALARMS.html(!state.hmiRun);
+    case 'rotor': { const a = v == null ? 0 : Number(v), sz = Math.min(o.w, o.h) * CELL - 8;
+      return `<div class="hrotor${bad ? ' bad' : ''}"><svg width="${sz}" height="${sz}" viewBox="-50 -50 100 100"><circle r="47" class="rt-ring"/><g transform="rotate(${a % 360})"><rect x="-44" y="-7" width="88" height="14" rx="7" class="rt-blade c-${col}"/><rect x="-7" y="-44" width="14" height="88" rx="7" class="rt-blade c-${col}" opacity=".55"/></g><circle r="9" class="rt-hub"/></svg><span class="hl">${lbl}</span></div>`; }
+    case 'login': { const u = HSEC.user;
+      return `<div class="hlogin"><span class="hl">${lbl}</span><b>${u ? esc(u.name) + ' <i>(' + esc(u.codes || '-') + ')</i>' : 'Not logged in'}</b><span class="lb"><button class="hbtn c-blue" data-login="1"${state.hmiRun ? '' : ' disabled'}>Login</button><button class="hbtn c-grey" data-logout="1"${state.hmiRun ? '' : ' disabled'}>Logout</button></span></div>`; }
     case 'model': return modelSVG(MODELS[o.model], P.io.models[o.model], o.w * CELL - 6, o.h * CELL - 6);
   }
   return '';
@@ -3288,6 +3379,7 @@ function hmiTick(){
   document.querySelectorAll('#hcanvas .ho').forEach(el => {
     const o = hObj(el.dataset.oid); if (!o) return;
     if (o.t === 'entry' && document.activeElement && document.activeElement.dataset.entry === o.id) return;
+    if (state.hmiRun) el.style.display = hVisible(o) ? '' : 'none';
     const rz = el.querySelector('.rz'); el.innerHTML = hInner(o); if (rz) el.appendChild(rz);
   });
 }
@@ -3368,6 +3460,8 @@ function hRelease(){
 $('#view').addEventListener('click', e => {
   if (state.view.kind !== 'hmi' || !state.hmiRun) return;
   if (e.target.closest('[data-ack]')){ ALARMS.ack(e.target.closest('[data-ack]').dataset.ack); hmiTick(); renderCtl(); return; }
+  if (e.target.closest('[data-logout]')){ HSEC.logout(); toast('Logged out'); renderHmi(); return; }
+  if (e.target.closest('[data-login]')){ showLogin(); return; }
   const el = e.target.closest('.ho'), o = el && hObj(el.dataset.oid); if (!o) return;
   if (o.t === 'mnt' && o.tag && CONN.online){ writeTag(o.tag, 0, true); hmiTick(); }
   if (o.t === 'nav' && P.hmi.screens[o.target]){ state.view.screen = +o.target; state.screen = state.view.screen; renderAll(); }
@@ -3402,6 +3496,8 @@ function renderHmiInspector(box){
     box.innerHTML = `<div class="sect"><h3>Screen<small>${P.hmi.screens.indexOf(sc) + 1} of ${P.hmi.screens.length}</small></h3>
       <div class="field"><label for="hsName">Name</label><input id="hsName" data-hs="name" value="${esc(sc.name)}"></div>
       <div class="btns"><button data-act="hsdup">Duplicate screen</button>${P.hmi.screens.length > 1 ? '<button class="danger" data-act="hsdel">Delete screen</button>' : ''}</div></div>
+      <div class="sect"><h3>Security</h3><div class="field"><label for="hsUsers">Users, one per line: name:password:codes</label><textarea id="hsUsers" data-hs="users" rows="4" class="mono" spellcheck="false">${esc((P.hmi.users || []).map(u => `${u.name}:${u.pass || ''}:${u.codes || ''}`).join('\n'))}</textarea></div>
+      <p class="note">Codes are letters A to P, for example Operator A, Supervisor AB, Engineer ABC. Add a Login / logout object, then hide objects with a Visible when expression such as <span class="mono">CurrentUserHasCode(B)</span>.</p></div>
       <div class="sect"><h3>How it works</h3><p class="note">Design mode edits the screen: drag objects to move them, drag the corner to resize, arrow keys nudge, Delete removes. Run mode goes online and lets you press the buttons.</p><p class="note">Link objects to controller tags, or to program tags with <span class="mono">Program:MainProgram.Tag</span>. The screens are saved in the project.</p></div>`;
     return;
   }
@@ -3420,6 +3516,7 @@ function renderHmiInspector(box){
     else if (f === 'pens') h += [0,1,2,3].map(k => `<div class="field"><label for="hp-pen${k}"><span style="color:${PEN[k]}">●</span> Pen ${k + 1}</label><input id="hp-pen${k}" data-hpen="${k}" list="hmitags" class="mono" value="${esc((o.pens || [])[k] || '')}" spellcheck="false" autocomplete="off"></div>`).join('');
     else { const numF = ['dec','min','max','span'].includes(f); h += `<div class="field"><label for="${id}">${{label:'Label', units:'Units', dec:'Decimals', min:'Minimum', max:'Maximum', span:'Time span (s)'}[f]}</label><input id="${id}" data-hp="${f}"${numF ? ' type="number" data-num="1"' : ''} value="${esc(val)}"></div>`; }
   }
+  h += `<div class="field"><label for="hp-vis">Visible when (blank = always)</label><input id="hp-vis" data-hp="vis" class="mono" value="${esc(o.vis || '')}" placeholder="CurrentUserHasCode(B) OR CurrentUserHasCode(C)" spellcheck="false"></div>`;
   h += `<div class="btns"><button data-act="hdup">Duplicate</button><button data-act="hfront">Bring to front</button><button class="danger" data-act="hdel">Delete</button></div>
     <p class="note mono">x ${o.x} · y ${o.y} · ${o.w} × ${o.h} cells</p></div>`;
   box.innerHTML = h;
@@ -3439,16 +3536,28 @@ function hmiInspectorClick(b){
 $('#insp').addEventListener('change', e => {
   if (state.view.kind !== 'hmi') return;
   const t = e.target, sc = hScreen(), o = state.hsel && hObj(state.hsel);
+  if (t.dataset.hs === 'users'){ edit(() => { P.hmi.users = t.value.split('\n').map(l => l.split(':').map(x => x.trim())).filter(a => a[0]).map(([name, pass, codes]) => ({name, pass:pass || '', codes:(codes || '').toUpperCase().replace(/[^A-P]/g, '')})); }); return; }
   if (t.dataset.hs === 'name'){ const n = t.value.trim(); if (n) edit(() => { sc.name = n; }); renderOrg(); renderToolbar(); renderHmi(); return; }
   if (!o) return;
   if (t.dataset.hpen != null) edit(() => { o.pens = (o.pens || ['','','','']).slice(); o.pens[+t.dataset.hpen] = t.value.trim(); delete TRENDS.buf[o.id]; });
   else if (t.dataset.hp) edit(() => { o[t.dataset.hp] = t.dataset.num ? Number(t.value) : t.dataset.hp === 'tag' ? t.value.trim() : t.value; });
   renderHmi(); if (t.dataset.hp === 'tag') renderInspector();
 });
+function showLogin(){
+  const us = P.hmi.users || [];
+  openModal(`<h2>Login</h2>${us.length ? '' : '<p class="note">No users yet. Add them in the screen properties (click an empty spot of the screen in design mode).</p>'}
+    <div class="field"><label for="lgU">User</label><select id="lgU">${us.map(u => `<option>${esc(u.name)}</option>`).join('')}</select></div>
+    <div class="field"><label for="lgP">Password</label><input id="lgP" type="password" autocomplete="off"></div><div class="errmsg" id="lgE"></div>
+    <div class="btns"><button class="primary" id="lgGo">Login</button><button data-close>Cancel</button></div>`);
+  const go = () => { if (HSEC.login($('#lgU').value, $('#lgP').value)){ closeModal(); toast('Logged in as ' + HSEC.user.name); renderHmi(); } else $('#lgE').textContent = 'Wrong user or password.'; };
+  $('#lgGo').onclick = go; $('#lgP').addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
+}
+window.openrungHmiLogin = (n, p) => { const ok = HSEC.login(n, p); if (state.view.kind === 'hmi') renderHmi(); return ok; };
+window.openrungHmiLogout = () => { HSEC.logout(); if (state.view.kind === 'hmi') renderHmi(); };
 /* ---------------- alarms ---------------- */
 const ACOND = {on:'is on', off:'is off', '>':'>', '>=':'≥', '<':'<', '<=':'≤', '=':'=', '<>':'≠'};
-const ALARMS = {st:{},
-  reset(){ this.st = {}; },
+const ALARMS = {st:{}, hist:[],
+  reset(){ this.st = {}; this.hist = []; },
   test(a){ const v = hval(a.tag); if (v == null) return false; const k = Number(a.value);
     switch (a.cond){ case 'on': return !!v; case 'off': return !v; case '>': return v > k; case '>=': return v >= k; case '<': return v < k; case '<=': return v <= k; case '=': return v === k; case '<>': return v !== k; } return false; },
   check(){
@@ -3457,19 +3566,22 @@ const ALARMS = {st:{},
     for (const a of P.hmi.alarms){
       const s = this.st[a.id] || (this.st[a.id] = {active:false, acked:true});
       const act = this.test(a);
-      if (act && !s.active){ s.active = true; s.acked = false; s.at = Date.now(); changed = true; }
-      else if (!act && s.active){ s.active = false; s.out = Date.now(); changed = true; }
+      if (act && !s.active){ s.active = true; s.acked = false; s.at = Date.now(); changed = true; this.hist.unshift({a, ev:'In', t:s.at}); }
+      else if (!act && s.active){ s.active = false; s.out = Date.now(); changed = true; this.hist.unshift({a, ev:'Out', t:s.out}); }
+      if (this.hist.length > 200) this.hist.length = 200;
     }
     if (changed) renderCtl();
   },
   list(){ return P.hmi.alarms.filter(a => { const s = this.st[a.id]; return s && (s.active || !s.acked); }).map(a => ({a, s:this.st[a.id]})).sort((x, y) => y.s.at - x.s.at); },
   unacked(){ return P.hmi.alarms.filter(a => { const s = this.st[a.id]; return s && !s.acked; }).length; },
-  ack(id){ if (id === '*') for (const k in this.st) this.st[k].acked = true; else if (this.st[id]) this.st[id].acked = true; },
+  ack(id){ const now = Date.now();
+    for (const a of P.hmi.alarms) if ((id === '*' || a.id === id) && this.st[a.id] && !this.st[a.id].acked){ this.st[a.id].acked = true; this.hist.unshift({a, ev:'Ack', t:now}); } },
   html(design){
     const rows = this.list();
     const body = rows.length ? rows.map(({a, s}) => `<tr class="sev-${esc(a.sev)}${s.acked ? '' : ' un'}"><td class="mono">${new Date(s.at).toLocaleTimeString()}</td><td>${esc(a.sev)}</td><td>${esc(a.msg)}</td><td>${s.active ? (s.acked ? 'Active' : 'Active, not acknowledged') : 'Normal, not acknowledged'}</td><td>${s.acked ? '' : `<button data-ack="${a.id}">Ack</button>`}</td></tr>`).join('')
       : `<tr><td colspan="5" class="muted">${design ? 'Alarms show here in Run mode. Define them under HMI › Alarms.' : CONN.online ? 'No active alarms.' : 'Offline.'}</td></tr>`;
-    return `<div class="halarms"><div class="ah"><b>Alarms</b><span class="muted">${rows.filter(r => r.s.active).length} active</span>${rows.some(r => !r.s.acked) ? '<button data-ack="*">Ack all</button>' : ''}</div><div class="aw"><table><tbody>${body}</tbody></table></div></div>`;
+    const hist = this.hist.slice(0, 50).map(x => `<tr class="hist sev-${esc(x.a.sev)}"><td class="mono">${new Date(x.t).toLocaleTimeString()}</td><td>${x.ev}</td><td colspan="3">${esc(x.a.msg)}</td></tr>`).join('');
+    return `<div class="halarms"><div class="ah"><b>Alarms</b><span class="muted">${rows.filter(r => r.s.active).length} active</span>${rows.some(r => !r.s.acked) ? '<button data-ack="*">Ack all</button>' : ''}</div><div class="aw"><table><tbody>${body}${hist ? `<tr><td colspan="5" class="muted"><b>History</b> (time, event, message)</td></tr>${hist}` : ''}</tbody></table></div></div>`;
   }
 };
 function renderAlarms(){
@@ -3873,6 +3985,9 @@ async function wbAutorun(){
 }
 
 /* ---------------- boot ---------------- */
+/* a private copy can carry extra course projects: [{title, project}] in #labProjects */
+function labProjects(){ try { const t = $('#labProjects').textContent.trim(); const j = t ? JSON.parse(t) : []; return Array.isArray(j) ? j.filter(x => x && x.project && x.project.programs) : []; } catch(e){ return []; } }
+window.openrungOpenLab = i => { const l = labProjects()[i]; if (!l) return false; save(true); pushUndo(); P = normalize(JSON.parse(JSON.stringify(l.project))); reparseAll(); state.view = {kind:'routine', prog:0, rt:0}; state.sel = null; state.hsel = null; ALARMS.reset(); save(true); renderAll(); return true; };
 /* a copy of the page can carry a project (an .openrung.json file pasted into #startProject); it opens the first time */
 const startProject = (() => { try { const t = $('#startProject').textContent.trim(), j = t && JSON.parse(t); return j ? j.project || j : null; } catch(e){ return null; } })();
 P = load();
